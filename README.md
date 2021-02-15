@@ -24,9 +24,6 @@ The repository includes:
 * Training code
 * Detection and evaluation code
 * Pre-trained weights
-```diff
-+ Example code for using Blender to render NOCS map
-```
 
 For more information, please visit the [**project page**](https://geometry.stanford.edu/projects/NOCS_CVPR2019/).
 
@@ -39,7 +36,7 @@ This code has been tested with
 
 
 ## Datasets
-* CAMERA Dataset: [Training](http://download.cs.stanford.edu/orion/nocs/camera_train.zip)/[Test](http://download.cs.stanford.edu/orion/nocs/camera_val25K.zip)/[IKEA_backgrounds](http://download.cs.stanford.edu/orion/nocs/ikea_data.zip)
+* CAMERA Dataset: [Training](http://download.cs.stanford.edu/orion/nocs/camera_train.zip)/[Test](http://download.cs.stanford.edu/orion/nocs/camera_val25K.zip)
 * Real Dataset: [Training](http://download.cs.stanford.edu/orion/nocs/real_train.zip)/[Test](http://download.cs.stanford.edu/orion/nocs/real_test.zip)
 * Ground truth pose annotation (for an easier evaluation): [Val&Real_test](http://download.cs.stanford.edu/orion/nocs/gts.zip)
 * [Object Meshes](http://download.cs.stanford.edu/orion/nocs/obj_models.zip)
@@ -62,20 +59,13 @@ You can download the checkpoints and store them under logs/.
 python3 train.py
 ```
 
-## Detection and evaluation
+## Detection and Evaluation
 ```
 # Detect using a checkpoint
 python3 detect_eval.py --mode detect --ckpt_path=/logs/ckpt --draw
 
 # Evaluate a checkpoint
 python3 detect_eval.py --mode eval --ckpt_path=/output/ckpt 
-```
 
-## Rendering NOCS Map using blender 2.79b
 ```
-# Render the NOCS map for the default cube in Blender
-# See images/nocs_map_cube.png for the reference.
-blender -b --python nocs_map_cube.py 
-```
-
 

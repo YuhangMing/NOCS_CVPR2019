@@ -44,6 +44,7 @@ import model as modellib
 from dataset import NOCSDataset
 import _pickle as cPickle
 from train import ScenesConfig
+np.set_printoptions(threshold=sys.maxsize)
 
 # Root directory of the project
 ROOT_DIR = os.getcwd()
@@ -86,6 +87,7 @@ if __name__ == '__main__':
     camera_dir = os.path.join('data', 'camera')
     real_dir = os.path.join('data', 'real')
     coco_dir = os.path.join('data', 'coco')
+    vil_dir = os.path.join('data', 'vil')
 
     #  real classes
     coco_names = ['BG', 'person', 'bicycle', 'car', 'motorcycle', 'airplane',
@@ -114,6 +116,7 @@ if __name__ == '__main__':
                     'mug'#6
                     ]
 
+    # maps from coco to their own dataset
     class_map = {
         'bottle': 'bottle',
         'bowl':'bowl',
@@ -146,10 +149,13 @@ if __name__ == '__main__':
             dataset_real_test.load_real_scenes(real_dir)
             dataset_real_test.prepare(class_map)
             dataset = dataset_real_test
+        elif data == 'vil':
+            dataset_vil = NOCSDataset(synset_names, 'vil', config)
+            dataset_vil.load_vil_scenes(vil_dir)
+            dataset_vil.prepare(class_map)
+            dataset = dataset_vil
         else:
             assert False, "Unknown data resource."
-
-        
 
         # Load trained weights (fill in path to trained weights here)
         model_path = ckpt_path
@@ -170,6 +176,8 @@ if __name__ == '__main__':
 
         if data in ['real_train', 'real_test']:
             intrinsics = np.array([[591.0125, 0, 322.525], [0, 590.16775, 244.11084], [0, 0, 1]])
+        elif data in ['vil']:
+            intrinsics = np.array([[580, 0, 319.5], [0, 580, 239.5], [0, 0, 1]])
         else: ## CAMERA data
             intrinsics = np.array([[577.5, 0, 319.5], [0., 577.5, 239.5], [0., 0., 1.]])
 
@@ -183,19 +191,20 @@ if __name__ == '__main__':
                 image_path = dataset.image_info[image_id]["path"]
                 print(image_path)
 
-
                 # record results
                 result = {}
 
-                # loading ground truth
+                # loading input images
                 image = dataset.load_image(image_id)
                 depth = dataset.load_depth(image_id)
 
-                gt_mask, gt_coord, gt_class_ids, gt_scales, gt_domain_label = dataset.load_mask(image_id)
-                gt_bbox = utils.extract_bboxes(gt_mask)
-     
                 result['image_id'] = image_id
                 result['image_path'] = image_path
+
+                # loading ground truth
+                gt_mask, gt_coord, gt_class_ids, gt_scales, gt_domain_label = dataset.load_mask(image_id)
+                # gt_bbox = utils.extract_bboxes(gt_mask)
+                gt_bbox=None
 
                 result['gt_class_ids'] = gt_class_ids
                 result['gt_bboxes'] = gt_bbox
@@ -203,54 +212,84 @@ if __name__ == '__main__':
                 result['gt_scales'] = gt_scales
 
                 image_path_parsing = image_path.split('/')
-                gt_pkl_path = os.path.join(gt_dir, 'results_{}_{}_{}.pkl'.format(data, image_path_parsing[-2], image_path_parsing[-1]))
-                print(gt_pkl_path)
-                if (os.path.exists(gt_pkl_path)):
-                    with open(gt_pkl_path, 'rb') as f:
-                        gt = cPickle.load(f)
-                    result['gt_RTs'] = gt['gt_RTs']
-                    if 'handle_visibility' in gt:
-                        result['gt_handle_visibility'] = gt['handle_visibility']
-                        assert len(gt['handle_visibility']) == len(gt_class_ids)
-                        print('got handle visibiity.')
-                    else: 
-                        result['gt_handle_visibility'] = np.ones_like(gt_class_ids)
-                else:
-                    # align gt coord with depth to get RT
-                    if not data in ['coco_val', 'coco_train']:
-                        if len(gt_class_ids) == 0:
-                            print('No gt instance exsits in this image.')
+                # gt_pkl_path = os.path.join(gt_dir, 'results_{}_{}_{}.pkl'.format(data, image_path_parsing[-2], image_path_parsing[-1]))
+                # print(gt_pkl_path)
+                # if (os.path.exists(gt_pkl_path)):
+                #     with open(gt_pkl_path, 'rb') as f:
+                #         gt = cPickle.load(f)
+                #     result['gt_RTs'] = gt['gt_RTs']
+                #     if 'handle_visibility' in gt:
+                #         result['gt_handle_visibility'] = gt['handle_visibility']
+                #         assert len(gt['handle_visibility']) == len(gt_class_ids)
+                #         print('got handle visibiity.')
+                #     else: 
+                #         result['gt_handle_visibility'] = np.ones_like(gt_class_ids)
+                # else:
+                #     # align gt coord with depth to get RT
+                #     if not data in ['coco_val', 'coco_train']:
+                #         if len(gt_class_ids) == 0:
+                #             print('No gt instance exsits in this image.')
 
-                        print('\nAligning ground truth...')
-                        start = time.time()
-                        result['gt_RTs'], _, error_message, _ = utils.align(gt_class_ids, 
-                                                                         gt_mask, 
-                                                                         gt_coord, 
-                                                                         depth, 
-                                                                         intrinsics, 
-                                                                         synset_names, 
-                                                                         image_path,
-                                                                         save_dir+'/'+'{}_{}_{}_gt_'.format(data, image_path_parsing[-2], image_path_parsing[-1]))
-                        print('New alignment takes {:03f}s.'.format(time.time() - start))
+                #         print('\nAligning ground truth...')
+                #         start = time.time()
+                #         result['gt_RTs'], _, error_message, _ = utils.align(gt_class_ids, 
+                #                                                          gt_mask, 
+                #                                                          gt_coord, 
+                #                                                          depth, 
+                #                                                          intrinsics, 
+                #                                                          synset_names, 
+                #                                                          image_path,
+                #                                                          save_dir+'/'+'{}_{}_{}_gt_'.format(data, image_path_parsing[-2], image_path_parsing[-1]))
+                #         print('New alignment takes {:03f}s.'.format(time.time() - start))
 
-                        if len(error_message):
-                            f_log.write(error_message)
+                #         if len(error_message):
+                #             f_log.write(error_message)
 
-                    result['gt_handle_visibility'] = np.ones_like(gt_class_ids)
+                #     result['gt_handle_visibility'] = np.ones_like(gt_class_ids)
+                result['gt_handle_visibility'] = None
 
                 ## detection
                 start = time.time()
                 detect_result = model.detect([image], verbose=0)
                 r = detect_result[0]
                 elapsed = time.time() - start
-                
-                print('\nDetection takes {:03f}s.'.format(elapsed))
+
+                """
+                Info on the Detection Result
+                detection_result is of the same size as the the list of input image, in our case: 1
+                r['rois']:      (# of detection, 4)             4 - parameters for 2D bounding box
+                r['class_ids']: (# of detection, )
+                r['scores']:    (# of detection, )
+                r['masks']:     (480, 640, # of detection)      480 - height; 640 - width
+                r['coords']:    (480, 640, # of detection, 3)   3 - x, y, z coordinates of the NOCS map
+                """
+
+                # assuming one object per class, remove rebundant detections
+                num_of_instance = len(r['class_ids'])
+                ind_to_remove = []
+                for i in range(num_of_instance):
+                    for j in range(num_of_instance):
+                        if i == j:
+                            continue
+                        if r['class_ids'][i] == r['class_ids'][j]:
+                            # compare the score
+                            if r['scores'][i] < r['scores'][j]:
+                                ind_to_remove.append(i)
+                                break
+                r['rois'] = np.delete(r['rois'], ind_to_remove, axis=0)
+                r['class_ids'] = np.delete(r['class_ids'], ind_to_remove)
+                r['scores'] = np.delete(r['scores'], ind_to_remove)
+                r['masks'] = np.delete(r['masks'], ind_to_remove, axis=2)
+                r['coords'] = np.delete(r['coords'], ind_to_remove, axis=2)
+
+                # print('\nDetection takes {:03f}s.'.format(elapsed))
                 result['pred_class_ids'] = r['class_ids']
                 result['pred_bboxes'] = r['rois']
                 result['pred_RTs'] = None   
                 result['pred_scores'] = r['scores']
 
-
+                # print(type(r['coords'][0,0,0,0]))
+                # print(r['coords'][:, :, 0,0])
                 
                 if len(r['class_ids']) == 0:
                     print('No instance is detected.')
@@ -263,22 +302,31 @@ if __name__ == '__main__':
                                                                                         depth, 
                                                                                         intrinsics, 
                                                                                         synset_names, 
-                                                                                        image_path)
+                                                                                        image_path,
+                                                                                        verbose=False)
                                                                                         #save_dir+'/'+'{}_{}_{}_pred_'.format(data, image_path_parsing[-2], image_path_parsing[-1]))
                 print('New alignment takes {:03f}s.'.format(time.time() - start))
                 elapse_times += elapses
                 if len(error_message):
                     f_log.write(error_message)
 
+                # print(result['pred_scales'])
+                """
+                Info on the "result"
+                result['pred_class_ids']:   (# of detection, )
+                result['pred_bboxes']:      (# of detection, 4)            4 - parameters for 2D bounding box
+                result['pred_scores']:      (# of detection, )
+                result['pred_RTs']:         (# of detection, 4, 4)         4, 4 - dimension of the Transform matrix, 4x4
+                result['pred_scales']:      (# of detection, 3)            3 - scale value on x, y, z axis of the NOCS map
+                """
 
                 if args.draw:
                     draw_rgb = False
                     utils.draw_detections(image, save_dir, data, image_path_parsing[-2]+'_'+image_path_parsing[-1], intrinsics, synset_names, draw_rgb,
                                             gt_bbox, gt_class_ids, gt_mask, gt_coord, result['gt_RTs'], gt_scales, result['gt_handle_visibility'],
-                                            r['rois'], r['class_ids'], r['masks'], r['coords'], result['pred_RTs'], r['scores'], result['pred_scales'])
+                                            r['rois'], r['class_ids'], r['masks'], r['coords'], result['pred_RTs'], r['scores'], result['pred_scales'],
+                                            draw_gt=False, draw_tag=False)
                 
-              
-
                 path_parse = image_path.split('/')
                 image_short_path = '_'.join(path_parse[-3:])
 
@@ -287,14 +335,12 @@ if __name__ == '__main__':
                     cPickle.dump(result, f)
                 print('Results of image {} has been saved to {}.'.format(image_short_path, save_path))
 
-                
                 elapsed = time.time() - image_start
                 print('Takes {} to finish this image.'.format(elapsed))
                 print('Alignment average time: ', np.mean(np.array(elapse_times)))
                 print('\n')
             
             f_log.close()
-
 
     else:
         log_dir = 'output/'

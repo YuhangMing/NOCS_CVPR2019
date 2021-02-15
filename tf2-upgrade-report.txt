@@ -1,0 +1,433 @@
+TensorFlow 2.0 Upgrade Script
+-----------------------------
+Converted 25 files
+Detected 0 issues that require attention
+--------------------------------------------------------------------------------
+================================================================================
+Detailed log follows:
+
+================================================================================
+================================================================================
+Input tree: 'NOCS-v1/'
+================================================================================
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/parallel_model.py'
+ outputting to 'NOCS-v2/parallel_model.py'
+--------------------------------------------------------------------------------
+
+72:21: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+72:21: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+130:8: INFO: Renamed 'tf.reset_default_graph' to 'tf.compat.v1.reset_default_graph'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/utils.py'
+ outputting to 'NOCS-v2/utils.py'
+--------------------------------------------------------------------------------
+
+602:9: INFO: Renamed 'tf.log' to 'tf.math.log'
+603:9: INFO: Renamed 'tf.log' to 'tf.math.log'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/ICP.py'
+ outputting to 'NOCS-v2/ICP.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/dataset.py'
+ outputting to 'NOCS-v2/dataset.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/detect_eval.py'
+ outputting to 'NOCS-v2/detect_eval.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/bridge.py'
+ outputting to 'NOCS-v2/bridge.py'
+--------------------------------------------------------------------------------
+
+25:11: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+29:12: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/detect1_ym.py'
+ outputting to 'NOCS-v2/detect1_ym.py'
+--------------------------------------------------------------------------------
+
+24:11: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+28:12: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/train.py'
+ outputting to 'NOCS-v2/train.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/keras_to_tf.py'
+ outputting to 'NOCS-v2/keras_to_tf.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/aligning.py'
+ outputting to 'NOCS-v2/aligning.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/model.py'
+ outputting to 'NOCS-v2/model.py'
+--------------------------------------------------------------------------------
+
+293:44: INFO: Added keywords to args of function 'tf.shape'
+363:17: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+395:44: INFO: Added keywords to args of function 'tf.shape'
+403:43: INFO: Added keywords to args of function 'tf.shape'
+445:29: INFO: Added keywords to args of function 'tf.shape'
+452:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+453:16: INFO: Added keywords to args of function 'tf.boolean_mask'
+463:37: INFO: Added keywords to args of function 'tf.shape'
+464:31: INFO: Added keywords to args of function 'tf.shape'
+479:32: INFO: Added keywords to args of function 'tf.shape'
+479:56: INFO: Added keywords to args of function 'tf.shape'
+482:18: INFO: Added keywords to args of function 'tf.reduce_max'
+485:23: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+487:23: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+492:23: INFO: Renamed 'tf.random_shuffle' to 'tf.random.shuffle'
+494:51: INFO: Added keywords to args of function 'tf.shape'
+495:23: INFO: Renamed 'tf.random_shuffle' to 'tf.random.shuffle'
+502:28: INFO: Added keywords to args of function 'tf.argmax'
+511:39: INFO: Added keywords to args of function 'tf.transpose'
+514:24: INFO: Added keywords to args of function 'tf.transpose'
+519:16: INFO: tf.assert_equal requires manual check. tf.assert_equal has been changed to return None, the data argument has been removed, and arguments have been reordered.
+The calls have been converted to compat.v1 for safety (even though  they may already have been correct).
+519:16: INFO: Renamed 'tf.assert_equal' to 'tf.compat.v1.assert_equal'
+519:32: INFO: Added keywords to args of function 'tf.shape'
+519:60: INFO: Added keywords to args of function 'tf.shape'
+520:21: INFO: Added keywords to args of function 'tf.shape'
+520:49: INFO: Added keywords to args of function 'tf.shape'
+545:26: INFO: Added keywords to args of function 'tf.shape'
+547:20: INFO: tf.assert_equal requires manual check. tf.assert_equal has been changed to return None, the data argument has been removed, and arguments have been reordered.
+The calls have been converted to compat.v1 for safety (even though  they may already have been correct).
+547:20: INFO: Renamed 'tf.assert_equal' to 'tf.compat.v1.assert_equal'
+547:36: INFO: Added keywords to args of function 'tf.shape'
+547:57: INFO: Added keywords to args of function 'tf.shape'
+548:33: INFO: Added keywords to args of function 'tf.shape'
+548:54: INFO: Added keywords to args of function 'tf.shape'
+577:8: INFO: Added keywords to args of function 'tf.shape'
+578:49: INFO: Added keywords to args of function 'tf.shape'
+579:11: INFO: Added keywords to args of function 'tf.pad'
+580:19: INFO: Added keywords to args of function 'tf.pad'
+581:13: INFO: Added keywords to args of function 'tf.pad'
+582:12: INFO: Added keywords to args of function 'tf.pad'
+588:14: INFO: Added keywords to args of function 'tf.pad'
+589:14: INFO: Added keywords to args of function 'tf.pad'
+590:14: INFO: Added keywords to args of function 'tf.pad'
+796:15: INFO: Renamed 'tf.py_func' to 'tf.compat.v1.py_func'
+831:33: INFO: Added keywords to args of function 'tf.shape'
+842:50: INFO: Added keywords to args of function 'tf.shape'
+1074:9: INFO: Added keywords to args of function 'tf.shape'
+1074:25: INFO: Added keywords to args of function 'tf.shape'
+1074:41: INFO: Added keywords to args of function 'tf.shape'
+1074:57: INFO: Added keywords to args of function 'tf.shape'
+1167:9: INFO: Added keywords to args of function 'tf.shape'
+1167:25: INFO: Added keywords to args of function 'tf.shape'
+1167:41: INFO: Added keywords to args of function 'tf.shape'
+1167:57: INFO: Added keywords to args of function 'tf.shape'
+1263:9: INFO: Added keywords to args of function 'tf.shape'
+1263:25: INFO: Added keywords to args of function 'tf.shape'
+1263:41: INFO: Added keywords to args of function 'tf.shape'
+1263:57: INFO: Added keywords to args of function 'tf.shape'
+1356:40: INFO: Added keywords to args of function 'tf.shape'
+1356:56: INFO: Added keywords to args of function 'tf.shape'
+1356:72: INFO: Added keywords to args of function 'tf.shape'
+1356:88: INFO: Added keywords to args of function 'tf.shape'
+1423:9: INFO: Added keywords to args of function 'tf.shape'
+1423:25: INFO: Added keywords to args of function 'tf.shape'
+1423:41: INFO: Added keywords to args of function 'tf.shape'
+1423:57: INFO: Added keywords to args of function 'tf.shape'
+1425:40: INFO: Added keywords to args of function 'tf.shape'
+1425:56: INFO: Added keywords to args of function 'tf.shape'
+1425:72: INFO: Added keywords to args of function 'tf.shape'
+1425:88: INFO: Added keywords to args of function 'tf.shape'
+1497:9: INFO: Added keywords to args of function 'tf.shape'
+1497:25: INFO: Added keywords to args of function 'tf.shape'
+1497:41: INFO: Added keywords to args of function 'tf.shape'
+1497:57: INFO: Added keywords to args of function 'tf.shape'
+1562:9: INFO: Added keywords to args of function 'tf.shape'
+1562:25: INFO: Added keywords to args of function 'tf.shape'
+1562:41: INFO: Added keywords to args of function 'tf.shape'
+1562:57: INFO: Added keywords to args of function 'tf.shape'
+1567:41: INFO: Added keywords to args of function 'tf.shape'
+1567:57: INFO: Added keywords to args of function 'tf.shape'
+1567:73: INFO: Added keywords to args of function 'tf.shape'
+1567:89: INFO: Added keywords to args of function 'tf.shape'
+1619:14: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+1627:20: INFO: Added keywords to args of function 'tf.size'
+1644:14: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+1660:20: INFO: Added keywords to args of function 'tf.size'
+1679:21: INFO: Added keywords to args of function 'tf.argmax'
+1700:20: INFO: Added keywords to args of function 'tf.reduce_sum'
+1700:52: INFO: Added keywords to args of function 'tf.reduce_sum'
+1700:73: INFO: Added keywords to args of function 'tf.reduce_sum'
+1721:22: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+1730:20: INFO: Added keywords to args of function 'tf.size'
+1748:17: INFO: Added keywords to args of function 'tf.shape'
+1750:17: INFO: Added keywords to args of function 'tf.shape'
+1754:17: INFO: Added keywords to args of function 'tf.transpose'
+1758:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+1770:20: INFO: Added keywords to args of function 'tf.size'
+1794:17: INFO: Added keywords to args of function 'tf.shape'
+1798:17: INFO: Added keywords to args of function 'tf.shape'
+1801:17: INFO: Added keywords to args of function 'tf.transpose'
+1805:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+1814:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+1823:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+1830:20: INFO: Added keywords to args of function 'tf.size'
+1860:11: INFO: Renamed 'tf.py_func' to 'tf.compat.v1.py_func'
+1879:17: INFO: Added keywords to args of function 'tf.shape'
+1880:18: INFO: Added keywords to args of function 'tf.shape'
+1881:17: INFO: Added keywords to args of function 'tf.shape'
+1885:20: INFO: Changed tf.image.resize_nearest_neighbor call to tf.image.resize(..., method=tf.image.ResizeMethod.NEAREST_NEIGHBOR).
+1886:19: INFO: Changed tf.image.resize_nearest_neighbor call to tf.image.resize(..., method=tf.image.ResizeMethod.NEAREST_NEIGHBOR).
+1892:18: INFO: Added keywords to args of function 'tf.transpose'
+1901:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+1935:23: INFO: Added keywords to args of function 'tf.transpose'
+1943:41: INFO: Added keywords to args of function 'tf.shape'
+1952:8: INFO: Added keywords to args of function 'tf.shape'
+1952:27: INFO: Added keywords to args of function 'tf.shape'
+1952:46: INFO: Added keywords to args of function 'tf.shape'
+1953:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+1956:27: INFO: Added keywords to args of function 'tf.reduce_sum'
+1957:33: INFO: Added keywords to args of function 'tf.reduce_sum'
+1959:27: INFO: Added keywords to args of function 'tf.argmin'
+1962:41: INFO: Added keywords to args of function 'tf.shape'
+1967:15: INFO: Added keywords to args of function 'tf.reduce_mean'
+1976:11: INFO: Added keywords to args of function 'tf.cond'
+1976:19: INFO: Added keywords to args of function 'tf.size'
+1998:17: INFO: Added keywords to args of function 'tf.shape'
+1999:18: INFO: Added keywords to args of function 'tf.shape'
+2000:17: INFO: Added keywords to args of function 'tf.shape'
+2005:20: INFO: Changed tf.image.resize_nearest_neighbor call to tf.image.resize(..., method=tf.image.ResizeMethod.NEAREST_NEIGHBOR).
+2007:19: INFO: Changed tf.image.resize_nearest_neighbor call to tf.image.resize(..., method=tf.image.ResizeMethod.NEAREST_NEIGHBOR).
+2013:18: INFO: Added keywords to args of function 'tf.transpose'
+2022:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+2055:23: INFO: Added keywords to args of function 'tf.transpose'
+2063:41: INFO: Added keywords to args of function 'tf.shape'
+2072:12: INFO: Added keywords to args of function 'tf.shape'
+2072:31: INFO: Added keywords to args of function 'tf.shape'
+2072:50: INFO: Added keywords to args of function 'tf.shape'
+2074:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+2077:27: INFO: Added keywords to args of function 'tf.reduce_sum'
+2078:33: INFO: Added keywords to args of function 'tf.reduce_sum'
+2086:39: INFO: Added keywords to args of function 'tf.reduce_min'
+2091:15: INFO: Added keywords to args of function 'tf.reduce_mean'
+2099:11: INFO: Added keywords to args of function 'tf.cond'
+2099:19: INFO: Added keywords to args of function 'tf.size'
+2122:15: INFO: Added keywords to args of function 'tf.shape'
+2125:17: INFO: Added keywords to args of function 'tf.shape'
+2129:17: INFO: Added keywords to args of function 'tf.shape'
+2132:24: INFO: Added keywords to args of function 'tf.transpose'
+2141:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+2180:23: INFO: Added keywords to args of function 'tf.transpose'
+2191:49: INFO: Added keywords to args of function 'tf.shape'
+2201:41: INFO: Added keywords to args of function 'tf.shape'
+2201:60: INFO: Added keywords to args of function 'tf.shape'
+2201:79: INFO: Added keywords to args of function 'tf.shape'
+2204:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+2207:27: INFO: Added keywords to args of function 'tf.reduce_sum'
+2208:33: INFO: Added keywords to args of function 'tf.reduce_sum'
+2210:27: INFO: Added keywords to args of function 'tf.argmin'
+2213:41: INFO: Added keywords to args of function 'tf.shape'
+2217:19: INFO: Added keywords to args of function 'tf.reduce_mean'
+2224:11: INFO: Added keywords to args of function 'tf.cond'
+2224:19: INFO: Added keywords to args of function 'tf.size'
+2246:17: INFO: Added keywords to args of function 'tf.shape'
+2250:17: INFO: Added keywords to args of function 'tf.shape'
+2253:17: INFO: Added keywords to args of function 'tf.transpose'
+2257:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+2274:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+2282:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+2289:20: INFO: Added keywords to args of function 'tf.size'
+2309:17: INFO: Added keywords to args of function 'tf.shape'
+2313:17: INFO: Added keywords to args of function 'tf.shape'
+2316:17: INFO: Added keywords to args of function 'tf.transpose'
+2320:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+2329:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+2337:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+2364:17: INFO: Added keywords to args of function 'tf.shape'
+2367:18: INFO: Added keywords to args of function 'tf.shape'
+2370:17: INFO: Added keywords to args of function 'tf.shape'
+2373:17: INFO: Added keywords to args of function 'tf.transpose'
+2377:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+2385:20: INFO: Added keywords to args of function 'tf.reduce_sum'
+2395:20: INFO: Added keywords to args of function 'tf.size'
+2416:17: INFO: Added keywords to args of function 'tf.shape'
+2421:17: INFO: Added keywords to args of function 'tf.shape'
+2424:18: INFO: Added keywords to args of function 'tf.transpose'
+2428:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+2437:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+2445:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+2447:25: INFO: Added keywords to args of function 'tf.reduce_sum'
+2450:20: INFO: Added keywords to args of function 'tf.size'
+2469:15: INFO: Added keywords to args of function 'tf.shape'
+2473:17: INFO: Added keywords to args of function 'tf.shape'
+2477:18: INFO: Added keywords to args of function 'tf.shape'
+2491:17: INFO: Added keywords to args of function 'tf.shape'
+2494:17: INFO: Added keywords to args of function 'tf.transpose'
+2500:18: INFO: Renamed 'tf.where' to 'tf.compat.v1.where'
+2510:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+2519:21: INFO: Added keywords to args of function 'tf.boolean_mask'
+2526:20: INFO: Added keywords to args of function 'tf.size'
+2539:12: INFO: Added keywords to args of function 'tf.shape'
+2540:56: INFO: Added keywords to args of function 'tf.shape'
+2544:28: INFO: Added keywords to args of function 'tf.shape'
+3337:73: INFO: Added keywords to args of function 'tf.shape'
+3484:38: INFO: Added keywords to args of function 'tf.shape'
+3494:38: INFO: Added keywords to args of function 'tf.shape'
+3505:38: INFO: Added keywords to args of function 'tf.shape'
+3822:38: INFO: Added keywords to args of function 'tf.shape'
+3834:38: INFO: Added keywords to args of function 'tf.shape'
+3845:38: INFO: Added keywords to args of function 'tf.shape'
+4052:71: INFO: Added keywords to args of function 'tf.reduce_mean'
+4054:42: INFO: Added keywords to args of function 'tf.reduce_mean'
+4077:52: INFO: Added keywords to args of function 'tf.reduce_mean'
+4080:48: INFO: Added keywords to args of function 'tf.reduce_mean'
+4597:11: INFO: Added keywords to args of function 'tf.boolean_mask'
+4597:42: INFO: Added keywords to args of function 'tf.reduce_sum'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/config.py'
+ outputting to 'NOCS-v2/config.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/setup.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/setup.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/build/lib.linux-x86_64-3.7/pycocotools/coco.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/build/lib.linux-x86_64-3.7/pycocotools/coco.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/build/lib.linux-x86_64-3.7/pycocotools/cocoeval.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/build/lib.linux-x86_64-3.7/pycocotools/cocoeval.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/build/lib.linux-x86_64-3.7/pycocotools/__init__.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/build/lib.linux-x86_64-3.7/pycocotools/__init__.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/build/lib.linux-x86_64-3.7/pycocotools/mask.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/build/lib.linux-x86_64-3.7/pycocotools/mask.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/build/lib.linux-x86_64-3.5/pycocotools/coco.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/build/lib.linux-x86_64-3.5/pycocotools/coco.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/build/lib.linux-x86_64-3.5/pycocotools/cocoeval.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/build/lib.linux-x86_64-3.5/pycocotools/cocoeval.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/build/lib.linux-x86_64-3.5/pycocotools/__init__.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/build/lib.linux-x86_64-3.5/pycocotools/__init__.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/build/lib.linux-x86_64-3.5/pycocotools/mask.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/build/lib.linux-x86_64-3.5/pycocotools/mask.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/pycocotools/coco.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/pycocotools/coco.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/pycocotools/cocoeval.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/pycocotools/cocoeval.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/pycocotools/__init__.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/pycocotools/__init__.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file 'NOCS-v1/cocoapi/PythonAPI/pycocotools/mask.py'
+ outputting to 'NOCS-v2/cocoapi/PythonAPI/pycocotools/mask.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+

@@ -16,6 +16,7 @@ from collections import OrderedDict
 import numpy as np
 import scipy.misc
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import keras
 import keras.backend as K
 import keras.layers as KL
@@ -290,7 +291,7 @@ class ProposalLayer(KE.Layer):
                 self.nms_threshold, name="rpn_non_max_suppression")
             proposals = tf.gather(normalized_boxes, indices)
             # Pad if needed
-            padding = self.proposal_count - tf.shape(proposals)[0]
+            padding = self.proposal_count - tf.shape(input=proposals)[0]
             proposals = tf.concat([proposals, tf.zeros([padding, 4])], 0)
             return proposals
         proposals = utils.batch_slice([normalized_boxes, scores], nms,
@@ -307,7 +308,7 @@ class ProposalLayer(KE.Layer):
 
 def log2_graph(x):
     """Implementatin of Log2. TF doesn't have a native implemenation."""
-    return tf.log(x) / tf.log(2.0)
+    return tf.math.log(x) / tf.math.log(2.0)
 
 
 class PyramidROIAlign(KE.Layer):
@@ -360,7 +361,7 @@ class PyramidROIAlign(KE.Layer):
         pooled = []
         box_to_level = []
         for i, level in enumerate(range(2, 6)):
-            ix = tf.where(tf.equal(roi_level, level))
+            ix = tf.compat.v1.where(tf.equal(roi_level, level))
             level_boxes = tf.gather_nd(boxes, ix)
 
             # Box indicies for crop_and_resize.
@@ -392,7 +393,7 @@ class PyramidROIAlign(KE.Layer):
         # Pack box_to_level mapping into one array and add another
         # column representing the order of pooled boxes
         box_to_level = tf.concat(box_to_level, axis=0)
-        box_range = tf.expand_dims(tf.range(tf.shape(box_to_level)[0]), 1)
+        box_range = tf.expand_dims(tf.range(tf.shape(input=box_to_level)[0]), 1)
         box_to_level = tf.concat([tf.cast(box_to_level, tf.int32), box_range],
                                  axis=1)
 
@@ -400,7 +401,7 @@ class PyramidROIAlign(KE.Layer):
         # Sort box_to_level by batch then box index
         # TF doesn't have a way to sort by two columns, so merge them and sort.
         sorting_tensor = box_to_level[:, 0] * 100000 + box_to_level[:, 1]
-        ix = tf.nn.top_k(sorting_tensor, k=tf.shape(box_to_level)[0]).indices[::-1]
+        ix = tf.nn.top_k(sorting_tensor, k=tf.shape(input=box_to_level)[0]).indices[::-1]
         ix = tf.gather(box_to_level[:,2], ix)
         pooled = tf.gather(pooled, ix)
 
@@ -442,15 +443,15 @@ def detection_targets_graph(proposals, gt_boxes, gt_masks, gt_coords, config):
     """
     # Assertions
     asserts = [
-        tf.Assert(tf.greater(tf.shape(proposals)[0], 0), [proposals],
+        tf.Assert(tf.greater(tf.shape(input=proposals)[0], 0), [proposals],
                   name="roi_assertion"),
     ]
     with tf.control_dependencies(asserts):
         proposals = tf.identity(proposals)
 
     # Remove proposals zero padding
-    non_zeros = tf.cast(tf.reduce_sum(tf.abs(proposals), axis=1), tf.bool)
-    proposals = tf.boolean_mask(proposals, non_zeros)
+    non_zeros = tf.cast(tf.reduce_sum(input_tensor=tf.abs(proposals), axis=1), tf.bool)
+    proposals = tf.boolean_mask(tensor=proposals, mask=non_zeros)
 
     # TODO: Remove zero padding from gt_boxes and gt_masks
 
@@ -460,8 +461,8 @@ def detection_targets_graph(proposals, gt_boxes, gt_masks, gt_coords, config):
     # TF doesn't have an equivalent to np.repeate() so simulate it
     # using tf.tile() and tf.reshape.
     rois = tf.reshape(tf.tile(tf.expand_dims(proposals, 1), 
-                              [1, 1, tf.shape(gt_boxes)[0]]), [-1, 4])
-    boxes = tf.tile(gt_boxes, [tf.shape(proposals)[0], 1])
+                              [1, 1, tf.shape(input=gt_boxes)[0]]), [-1, 4])
+    boxes = tf.tile(gt_boxes, [tf.shape(input=proposals)[0], 1])
     # 2. Compute intersections
     roi_y1, roi_x1, roi_y2, roi_x2 = tf.split(rois, 4, axis=1)
     box_y1, box_x1, box_y2, box_x2, class_ids = tf.split(boxes, 5, axis=1)
@@ -476,30 +477,30 @@ def detection_targets_graph(proposals, gt_boxes, gt_masks, gt_coords, config):
     union = roi_area + box_area - intersection
     # 4. Compute IoU and reshape to [rois, boxes]
     iou = intersection / union
-    overlaps = tf.reshape(iou, [tf.shape(proposals)[0], tf.shape(gt_boxes)[0]])
+    overlaps = tf.reshape(iou, [tf.shape(input=proposals)[0], tf.shape(input=gt_boxes)[0]])
 
     # Determine postive and negative ROIs
-    roi_iou_max = tf.reduce_max(overlaps, axis=1)
+    roi_iou_max = tf.reduce_max(input_tensor=overlaps, axis=1)
     # 1. Positive ROIs are those with >= 0.5 IoU with a GT box
     positive_roi_bool = (roi_iou_max >= 0.5)
-    positive_indices = tf.where(positive_roi_bool)[:, 0]
+    positive_indices = tf.compat.v1.where(positive_roi_bool)[:, 0]
     # 2. Negative ROIs are those with < 0.5 with every GT box
-    negative_indices = tf.where(roi_iou_max < 0.5)[:, 0]
+    negative_indices = tf.compat.v1.where(roi_iou_max < 0.5)[:, 0]
 
     # Subsample ROIs. Aim for 33% positive
     # Positive ROIs
     positive_count = int(config.TRAIN_ROIS_PER_IMAGE * config.ROI_POSITIVE_RATIO)
-    positive_indices = tf.random_shuffle(positive_indices)[:positive_count]
+    positive_indices = tf.random.shuffle(positive_indices)[:positive_count]
     # Negative ROIs. Fill the rest of the batch.
-    negative_count = config.TRAIN_ROIS_PER_IMAGE - tf.shape(positive_indices)[0]
-    negative_indices = tf.random_shuffle(negative_indices)[:negative_count]
+    negative_count = config.TRAIN_ROIS_PER_IMAGE - tf.shape(input=positive_indices)[0]
+    negative_indices = tf.random.shuffle(negative_indices)[:negative_count]
     # Gather selected ROIs
     positive_rois = tf.gather(proposals, positive_indices)
     negative_rois = tf.gather(proposals, negative_indices)
 
     # Assign positive ROIs to GT boxes.
     positive_overlaps = tf.gather(overlaps, positive_indices)
-    roi_gt_box_assignment = tf.argmax(positive_overlaps, axis=1)
+    roi_gt_box_assignment = tf.argmax(input=positive_overlaps, axis=1)
     roi_gt_boxes = tf.gather(gt_boxes, roi_gt_box_assignment)
 
     # Compute bbox refinement for positive ROIs
@@ -508,16 +509,16 @@ def detection_targets_graph(proposals, gt_boxes, gt_masks, gt_coords, config):
 
     # Assign positive ROIs to GT masks
     # Permute masks to [N, height, width, 1]
-    transposed_masks =  tf.expand_dims(tf.transpose(gt_masks, [2, 0, 1]), -1)
+    transposed_masks =  tf.expand_dims(tf.transpose(a=gt_masks, perm=[2, 0, 1]), -1)
     transposed_masks = tf.cast(transposed_masks, tf.float32)
 
-    transposed_coords = tf.transpose(gt_coords, [2, 0, 1, 3])
+    transposed_coords = tf.transpose(a=gt_coords, perm=[2, 0, 1, 3])
     transposed_coord_x = tf.gather(transposed_coords, [0], axis=3)
     transposed_coord_y = tf.gather(transposed_coords, [1], axis=3)
     transposed_coord_z = tf.gather(transposed_coords, [2], axis=3)
 
-    assert_op = tf.assert_equal(tf.shape(transposed_masks), tf.shape(transposed_coord_x),
-                    [tf.shape(transposed_masks), tf.shape(transposed_coord_x)], name='coord_mask')
+    assert_op = tf.compat.v1.assert_equal(tf.shape(input=transposed_masks), tf.shape(input=transposed_coord_x),
+                    [tf.shape(input=transposed_masks), tf.shape(input=transposed_coord_x)], name='coord_mask')
 
     with tf.control_dependencies([assert_op]):
         #transposed_mask_coord = tf.concat([transposed_masks, transposed_coords], axis=3)
@@ -542,10 +543,10 @@ def detection_targets_graph(proposals, gt_boxes, gt_masks, gt_coords, config):
         y2 = (y2 - gt_y1) / gt_h
         x2 = (x2 - gt_x1) / gt_w
         boxes = tf.concat([y1, x1, y2, x2], 1)
-    box_ids = tf.range(0, tf.shape(roi_masks)[0])
+    box_ids = tf.range(0, tf.shape(input=roi_masks)[0])
 
-    assert_op_new = tf.assert_equal(tf.shape(roi_masks), tf.shape(roi_coord_x),
-                                [tf.shape(roi_masks), tf.shape(roi_coord_x)], name='coord_mask_2')
+    assert_op_new = tf.compat.v1.assert_equal(tf.shape(input=roi_masks), tf.shape(input=roi_coord_x),
+                                [tf.shape(input=roi_masks), tf.shape(input=roi_coord_x)], name='coord_mask_2')
     with tf.control_dependencies([assert_op_new]):
         masks = tf.image.crop_and_resize(tf.cast(roi_masks, tf.float32), boxes,
                                          box_ids,
@@ -574,20 +575,20 @@ def detection_targets_graph(proposals, gt_boxes, gt_masks, gt_coords, config):
     # Append negative ROIs and pad bbox deltas and masks that
     # are not used for negative ROIs with zeros.
     rois = tf.concat([positive_rois, negative_rois], axis=0)
-    N = tf.shape(negative_rois)[0]
-    P = tf.maximum(config.TRAIN_ROIS_PER_IMAGE - tf.shape(rois)[0], 0)
-    rois = tf.pad(rois, [(0, P), (0, 0)])
-    roi_gt_boxes = tf.pad(roi_gt_boxes, [(0, N+P), (0, 0)])
-    deltas = tf.pad(deltas, [(0, N+P), (0, 0)])
-    masks = tf.pad(masks, [[0, N+P], (0, 0), (0, 0)])
+    N = tf.shape(input=negative_rois)[0]
+    P = tf.maximum(config.TRAIN_ROIS_PER_IMAGE - tf.shape(input=rois)[0], 0)
+    rois = tf.pad(tensor=rois, paddings=[(0, P), (0, 0)])
+    roi_gt_boxes = tf.pad(tensor=roi_gt_boxes, paddings=[(0, N+P), (0, 0)])
+    deltas = tf.pad(tensor=deltas, paddings=[(0, N+P), (0, 0)])
+    masks = tf.pad(tensor=masks, paddings=[[0, N+P], (0, 0), (0, 0)])
 
     coord_x = tf.squeeze(coord_x, axis=3)
     coord_y = tf.squeeze(coord_y, axis=3)
     coord_z = tf.squeeze(coord_z, axis=3)
 
-    coord_x = tf.pad(coord_x, [[0, N + P], (0, 0), (0, 0)])
-    coord_y = tf.pad(coord_y, [[0, N + P], (0, 0), (0, 0)])
-    coord_z = tf.pad(coord_z, [[0, N + P], (0, 0), (0, 0)])
+    coord_x = tf.pad(tensor=coord_x, paddings=[[0, N + P], (0, 0), (0, 0)])
+    coord_y = tf.pad(tensor=coord_y, paddings=[[0, N + P], (0, 0), (0, 0)])
+    coord_z = tf.pad(tensor=coord_z, paddings=[[0, N + P], (0, 0), (0, 0)])
 
     coord_x = tf.cast(coord_x, dtype=tf.float32)
     coord_y = tf.cast(coord_y, dtype=tf.float32)
@@ -793,7 +794,7 @@ class DetectionLayer(KE.Layer):
                               [1, self.config.DETECTION_MAX_INSTANCES, 6])
 
         # Return wrapped function
-        return tf.py_func(wrapper, inputs, tf.float32)
+        return tf.compat.v1.py_func(wrapper, inputs, tf.float32)
 
     def compute_output_shape(self, input_shape):
         return (None, self.config.DETECTION_MAX_INSTANCES, 6)
@@ -828,7 +829,7 @@ def rpn_graph(feature_map, anchors_per_location, anchor_stride):
 
     # Reshape to [batch, anchors, 2]
     rpn_class_logits = KL.Lambda(
-        lambda t: tf.reshape(t, [tf.shape(t)[0], -1, 2]))(x)
+        lambda t: tf.reshape(t, [tf.shape(input=t)[0], -1, 2]))(x)
 
     # Softmax on last dimension of BG/FG.
     rpn_probs = KL.Activation("softmax", name="rpn_class_xxx")(rpn_class_logits)
@@ -839,7 +840,7 @@ def rpn_graph(feature_map, anchors_per_location, anchor_stride):
                   activation='linear', name='rpn_bbox_pred')(shared)
 
     # Reshape to [batch, anchors, 4]
-    rpn_bbox = KL.Lambda(lambda t: tf.reshape(t, [tf.shape(t)[0], -1, 4]))(x)
+    rpn_bbox = KL.Lambda(lambda t: tf.reshape(t, [tf.shape(input=t)[0], -1, 4]))(x)
 
     return [rpn_class_logits, rpn_probs, rpn_bbox]
 
@@ -920,7 +921,11 @@ def fpn_classifier_graph(rois, feature_maps,
                            name='mrcnn_bbox_fc')(shared)
     # Reshape to [batch, boxes, num_classes, (dy, dx, log(dh), log(dw))]
     s = K.int_shape(x)
-    mrcnn_bbox = KL.Reshape((s[1], num_classes, 4), name="mrcnn_bbox")(x)
+    # mrcnn_bbox = KL.Reshape((s[1], num_classes, 4), name="mrcnn_bbox")(x)
+    if s[1]==None:
+        mrcnn_bbox = KL.Reshape((-1, num_classes, 4), name="mrcnn_bbox")(x)
+    else:
+        mrcnn_bbox = KL.Reshape((s[1], num_classes, 4), name="mrcnn_bbox")(x)
 
     return mrcnn_class_logits, mrcnn_probs, mrcnn_bbox
 
@@ -1071,7 +1076,7 @@ def build_fpn_coord_graph(rois, feature_maps,
                            name="mrcnn_coord_reshape")(feature_x)
 
     x = KL.Lambda(lambda t: tf.reshape(t,
-        [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, 3]), name="mrcnn_coord")(x)
+        [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, 3]), name="mrcnn_coord")(x)
 
     mrcnn_coord_x = KL.Lambda(lambda x: x[:, :, :, :, :, 0], name="mrcnn_coord_x")(x)
     mrcnn_coord_y = KL.Lambda(lambda x: x[:, :, :, :, :, 1], name="mrcnn_coord_y")(x)
@@ -1164,7 +1169,7 @@ def build_fpn_mask_coords_graph(rois, feature_maps,
                            name="mrcnn_coord_reshape")(feature_x)
 
     x = KL.Lambda(lambda t: tf.reshape(t,
-        [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, 4]), name="mrcnn_coord")(x)
+        [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, 4]), name="mrcnn_coord")(x)
    
     
     mrcnn_mask = KL.Lambda(lambda x: x[:, :, :, :, :, 0], name="mrcnn_mask")(x)
@@ -1260,7 +1265,7 @@ def build_fpn_mask_coords_deeper_graph(rois, feature_maps,
                            name="mrcnn_coord_reshape")(x)
 
     x = KL.Lambda(lambda t: tf.reshape(t,
-        [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, 4]), name="mrcnn_coord")(x)
+        [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, 4]), name="mrcnn_coord")(x)
    
     
     mrcnn_mask = KL.Lambda(lambda x: x[:, :, :, :, :, 0], name="mrcnn_mask")(x)
@@ -1353,7 +1358,7 @@ def build_fpn_coords_bins_graph(rois, feature_maps,
                            name="mrcnn_coord_reshape")(feature_x)
 
     x = KL.Lambda(lambda t: tf.reshape(t,
-                                       [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, 3,
+                                       [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, 3,
                                         num_bins]), name="mrcnn_coord_bins_reshape")(x)
 
     mrcnn_coord_x = KL.Lambda(lambda x: x[:, :, :, :, :, 0, :], name="mrcnn_coord_x")(x)
@@ -1420,9 +1425,9 @@ def build_fpn_coords_bins_delta_graph(rois, feature_maps,
 
 
     x1 = KL.Lambda(lambda t: tf.reshape(t,
-        [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, 3, num_bins]), name="mrcnn_coord_bins_reshape")(x1)
+        [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, 3, num_bins]), name="mrcnn_coord_bins_reshape")(x1)
     x2 = KL.Lambda(lambda t: tf.reshape(t,
-                                       [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, 3,
+                                       [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, 3,
                                         num_bins]), name="mrcnn_coord_delta_reshape")(x2)
 
     x1 = KL.Activation('softmax', name='mrcnn_coord_bins')(x1)
@@ -1494,7 +1499,7 @@ def build_fpn_coord_bins_graph(rois, feature_maps,
                            name="mrcnn_{}_conv_bins".format(net_name))(x_feature)
 
     x = KL.Lambda(lambda t: tf.reshape(t,
-        [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, num_bins]), name="mrcnn_{}_bins_reshape".format(net_name))(x)
+        [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, num_bins]), name="mrcnn_{}_bins_reshape".format(net_name))(x)
 
     x = KL.Activation('softmax', name='mrcnn_{}_bins'.format(net_name))(x)
 
@@ -1559,12 +1564,12 @@ def build_fpn_coord_bins_delta_graph(rois, feature_maps,
 
 
     x1 = KL.Lambda(lambda t: tf.reshape(t,
-        [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, num_bins]), name="mrcnn_{}_bins_reshape".format(net_name))(x1)
+        [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, num_bins]), name="mrcnn_{}_bins_reshape".format(net_name))(x1)
 
     x1 = KL.Activation('softmax', name='mrcnn_{}_bins'.format(net_name))(x1)
 
     x2 = KL.Lambda(lambda t: tf.reshape(t,
-                                        [tf.shape(t)[0], tf.shape(t)[1], tf.shape(t)[2], tf.shape(t)[3], -1, num_bins]),
+                                        [tf.shape(input=t)[0], tf.shape(input=t)[1], tf.shape(input=t)[2], tf.shape(input=t)[3], -1, num_bins]),
                    name="mrcnn_{}_delta_reshape".format(net_name))(x2)
 
     x2 = KL.Activation('sigmoid', name='mrcnn_{}_delta_bins'.format(net_name))(x2)
@@ -1616,7 +1621,7 @@ def rpn_class_loss_graph(rpn_match, rpn_class_logits):
     anchor_class = K.cast(K.equal(rpn_match, 1), tf.int32)
     # Positive and Negative anchors contribute to the loss,
     # but neutral anchors (match value = 0) don't.
-    indices = tf.where(K.not_equal(rpn_match, 0))
+    indices = tf.compat.v1.where(K.not_equal(rpn_match, 0))
     # Pick rows that contribute to the loss and filter out the rest.
     rpn_class_logits = tf.gather_nd(rpn_class_logits, indices)
     anchor_class = tf.gather_nd(anchor_class, indices)
@@ -1624,7 +1629,7 @@ def rpn_class_loss_graph(rpn_match, rpn_class_logits):
     loss = K.sparse_categorical_crossentropy(target=anchor_class, 
                                              output=rpn_class_logits, 
                                              from_logits=True)
-    loss = K.switch(tf.size(loss) > 0, K.mean(loss), tf.constant(0.0))
+    loss = K.switch(tf.size(input=loss) > 0, K.mean(loss), tf.constant(0.0))
     return loss
 
 
@@ -1641,7 +1646,7 @@ def rpn_bbox_loss_graph(config, target_bbox, rpn_match, rpn_bbox):
     # Positive anchors contribute to the loss, but negative and
     # neutral anchors (match value of 0 or -1) don't.
     rpn_match = K.squeeze(rpn_match, -1)
-    indices = tf.where(K.equal(rpn_match, 1))
+    indices = tf.compat.v1.where(K.equal(rpn_match, 1))
 
     # Pick bbox deltas that contribute to the loss
     rpn_bbox = tf.gather_nd(rpn_bbox, indices)
@@ -1657,7 +1662,7 @@ def rpn_bbox_loss_graph(config, target_bbox, rpn_match, rpn_bbox):
     less_than_one = K.cast(K.less(diff, 1.0), "float32")
     loss = (less_than_one * 0.5 * diff**2) + (1-less_than_one) * (diff - 0.5)
 
-    loss = K.switch(tf.size(loss) > 0, K.mean(loss), tf.constant(0.0))
+    loss = K.switch(tf.size(input=loss) > 0, K.mean(loss), tf.constant(0.0))
     return loss
 
 
@@ -1676,7 +1681,7 @@ def mrcnn_class_loss_graph(target_class_ids, pred_class_logits,
     #target_class_ids = tf.Print(target_class_ids, [target_class_ids], message="target_class_ids", summarize=15)
 
     # Find predictions of classes that are not in the dataset.
-    pred_class_ids = tf.argmax(pred_class_logits, axis=2)
+    pred_class_ids = tf.argmax(input=pred_class_logits, axis=2)
     # TODO: Update this line to work with batch > 1. Right now it assumes all
     #       images in a batch have the same active_class_ids
     #pred_class_ids = tf.Print(pred_class_ids, [pred_class_logits], message="pred_class_logits", summarize=200)
@@ -1697,7 +1702,7 @@ def mrcnn_class_loss_graph(target_class_ids, pred_class_logits,
     # to the loss to get a correct mean.
     #loss = tf.Print(loss, [loss, tf.reduce_sum(pred_active), tf.reduce_sum(loss)], message="loss_after_mean",
     #                summarize=15)
-    loss = K.switch(tf.reduce_sum(pred_active) > 0, tf.reduce_sum(loss)/ tf.reduce_sum(pred_active), tf.constant(0.0))
+    loss = K.switch(tf.reduce_sum(input_tensor=pred_active) > 0, tf.reduce_sum(input_tensor=loss)/ tf.reduce_sum(input_tensor=pred_active), tf.constant(0.0))
 
     ##tf.reduce_sum(loss) / tf.reduce_sum(pred_active)
 
@@ -1718,7 +1723,7 @@ def mrcnn_bbox_loss_graph(target_bbox, target_class_ids, pred_bbox):
 
     # Only positive ROIs contribute to the loss. And only
     # the right class_id of each ROI. Get their indicies.
-    positive_roi_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_roi_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
     positive_roi_class_ids = tf.cast(tf.gather(target_class_ids, positive_roi_ix), tf.int64)
     indices = tf.stack([positive_roi_ix, positive_roi_class_ids], axis=1)
 
@@ -1727,7 +1732,7 @@ def mrcnn_bbox_loss_graph(target_bbox, target_class_ids, pred_bbox):
     pred_bbox = tf.gather_nd(pred_bbox, indices)
 
     # Smooth-L1 Loss
-    loss = K.switch(tf.size(target_bbox) > 0,
+    loss = K.switch(tf.size(input=target_bbox) > 0,
                     smooth_l1_loss(y_true=target_bbox, y_pred=pred_bbox),
                     tf.constant(0.0))
     loss = K.mean(loss)
@@ -1745,17 +1750,17 @@ def mrcnn_mask_loss_graph(target_masks, target_class_ids, pred_masks):
     """
     # Reshape for simplicity. Merge first two dimensions into one.
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
+    mask_shape = tf.shape(input=target_masks)
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3]))
-    pred_shape = tf.shape(pred_masks)
+    pred_shape = tf.shape(input=pred_masks)
     pred_masks = K.reshape(pred_masks, 
                            (-1, pred_shape[2], pred_shape[3], pred_shape[4]))
     # Permute predicted masks to [N, num_classes, height, width]
-    pred_masks = tf.transpose(pred_masks, [0, 3, 1, 2])
+    pred_masks = tf.transpose(a=pred_masks, perm=[0, 3, 1, 2])
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
     positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)
     indices = tf.stack([positive_ix, positive_class_ids], axis=1)
 
@@ -1767,7 +1772,7 @@ def mrcnn_mask_loss_graph(target_masks, target_class_ids, pred_masks):
     # shape: [batch, roi, num_classes]
 
     binary_crossentropy_loss = K.binary_crossentropy(target=y_true, output=y_pred)
-    loss = K.switch(tf.size(y_true) > 0,
+    loss = K.switch(tf.size(input=y_true) > 0,
                     binary_crossentropy_loss,
                     tf.constant(0.0))
 
@@ -1791,18 +1796,18 @@ def mrcnn_coord_l1_loss_graph(target_masks, target_coord, target_class_ids, pred
 
 
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
+    mask_shape = tf.shape(input=target_masks)
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3]))
     target_coord = K.reshape(target_coord, (-1, mask_shape[2], mask_shape[3]))
 
-    pred_shape = tf.shape(pred_coord)
+    pred_shape = tf.shape(input=pred_coord)
     pred_coord = K.reshape(pred_coord, (-1, pred_shape[2], pred_shape[3], pred_shape[4]))
     # Permute predicted masks to [N, num_classes, height, width]
-    pred_coord = tf.transpose(pred_coord, [0, 3, 1, 2])
+    pred_coord = tf.transpose(a=pred_coord, perm=[0, 3, 1, 2])
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
     positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)
     indices = tf.stack([positive_ix, positive_class_ids], axis=1)
 
@@ -1811,7 +1816,7 @@ def mrcnn_coord_l1_loss_graph(target_masks, target_coord, target_class_ids, pred
     y_true = tf.gather(target_coord, positive_ix) ## shape: [num_pos_rois, height, width]
     mask = tf.gather(target_masks, positive_ix) ## shape: [num_pos_rois, height, width]
     mask = tf.cast(mask, dtype=tf.bool)
-    y_true_in_mask = tf.boolean_mask(y_true, mask) ## shape: [num_pos_rois, height, width]
+    y_true_in_mask = tf.boolean_mask(tensor=y_true, mask=mask) ## shape: [num_pos_rois, height, width]
 
 
     #y_mask = tf.gather(target_masks, positive_ix)
@@ -1820,14 +1825,14 @@ def mrcnn_coord_l1_loss_graph(target_masks, target_coord, target_class_ids, pred
     #y_pred_in_mask = tf.multiply(y_mask, y_pred)
 
     y_pred = tf.gather_nd(pred_coord, indices)
-    y_pred_in_mask = tf.boolean_mask(y_pred, mask)
+    y_pred_in_mask = tf.boolean_mask(tensor=y_pred, mask=mask)
 
     #coord_loss = K.sum(K.abs(y_true_in_mask - y_pred_in_mask), axis=[1, 2])
 
     coord_loss = K.abs(y_true_in_mask - y_pred_in_mask)
     mean_loss =  K.mean(coord_loss)
 
-    loss = K.switch(tf.size(y_true) > 0, mean_loss, tf.constant(0.0))
+    loss = K.switch(tf.size(input=y_true) > 0, mean_loss, tf.constant(0.0))
     loss = K.reshape(loss, [1, 1])
 
     return loss
@@ -1857,7 +1862,7 @@ def class_id_to_theta(class_id):
             return np.float32(2*math.pi/6)
         else:
             return np.float32(0)
-    return tf.py_func(my_func, [class_id], tf.float32)
+    return tf.compat.v1.py_func(my_func, [class_id], tf.float32)
 
 
 def mrcnn_coord_symmetry_loss_graph(target_masks, target_coords, target_class_ids, target_domain_labels, pred_coords, loss_fn):
@@ -1876,20 +1881,20 @@ def mrcnn_coord_symmetry_loss_graph(target_masks, target_coords, target_class_id
     # Reshape for simplicity. Merge first two dimensions into one.
     target_class_ids = tf.reshape(target_class_ids, (-1,))
 
-    mask_shape = tf.shape(target_masks)
-    coord_shape = tf.shape(target_coords)
-    pred_shape = tf.shape(pred_coords)
+    mask_shape = tf.shape(input=target_masks)
+    coord_shape = tf.shape(input=target_coords)
+    pred_shape = tf.shape(input=pred_coords)
 
     target_masks = tf.reshape(target_masks, (-1, mask_shape[2], mask_shape[3], 1))
     target_coords = tf.reshape(target_coords, (-1, coord_shape[2], coord_shape[3], 3))
-    target_coords = tf.image.resize_nearest_neighbor(target_coords, (pred_shape[2], pred_shape[3]))
-    target_masks = tf.image.resize_nearest_neighbor(target_masks, (pred_shape[2], pred_shape[3]))
+    target_coords = tf.image.resize(target_coords, (pred_shape[2], pred_shape[3]), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    target_masks = tf.image.resize(target_masks, (pred_shape[2], pred_shape[3]), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     target_masks = tf.reshape(target_masks, (-1, pred_shape[2], pred_shape[3]))
 
 
     # Permute predicted coords to [N, num_classes, height, width, 3]
     pred_coords = tf.reshape(pred_coords, (-1, pred_shape[2], pred_shape[3], pred_shape[4], 3))
-    pred_coords = tf.transpose(pred_coords, [0, 3, 1, 2, 4])
+    pred_coords = tf.transpose(a=pred_coords, perm=[0, 3, 1, 2, 4])
 
 
     # Only positive ROIs contribute to the loss. And only the class specific mask of each ROI.
@@ -1898,7 +1903,7 @@ def mrcnn_coord_symmetry_loss_graph(target_masks, target_coords, target_class_id
     domain_ix = tf.equal(target_domain_labels, False)
     target_class_ids = tf.multiply(target_class_ids, tf.cast(domain_ix, dtype=tf.float32))
 
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
 
 
     def nonzero_positive_loss(target_masks, target_coords, pred_coords, positive_ix):
@@ -1932,7 +1937,7 @@ def mrcnn_coord_symmetry_loss_graph(target_masks, target_coords, target_class_id
         y_true_stack = tf.concat([y_true, rotated_y_true_1, rotated_y_true_2, rotated_y_true_3,
                                   rotated_y_true_4, rotated_y_true_5],
                                  axis=4)  ## shape: [num_pos_rois, height, width, 3, 6]
-        y_true_stack = tf.transpose(y_true_stack, (0, 1, 2, 4, 3))  ## shape: [num_pos_rois, height, width, 6, 3]
+        y_true_stack = tf.transpose(a=y_true_stack, perm=(0, 1, 2, 4, 3))  ## shape: [num_pos_rois, height, width, 6, 3]
         y_true_stack = y_true_stack + 0.5
 
         indices = tf.stack([positive_ix, positive_class_ids], axis=1)
@@ -1940,7 +1945,7 @@ def mrcnn_coord_symmetry_loss_graph(target_masks, target_coords, target_class_id
         y_pred = tf.gather_nd(pred_coords, indices)  ## shape: [num_pos_roi, height, width, 3]
         y_pred = tf.expand_dims(y_pred, axis=3)  ## shape: [num_pos_roi, height, width, 1, 3]
         y_pred_stack = tf.tile(y_pred,
-                               [1, 1, 1, tf.shape(y_true_stack)[3], 1])  ## shape: [num_pos_rois, height, width, 6, 3]
+                               [1, 1, 1, tf.shape(input=y_true_stack)[3], 1])  ## shape: [num_pos_rois, height, width, 6, 3]
 
         diff = K.abs(y_true_stack - y_pred_stack)  ## shape: [num_pos_rois, height, width, 6, 3]
         diff = loss_fn(diff)  ## shape: [num_pos_rois, height, width, 6, 3]
@@ -1949,22 +1954,22 @@ def mrcnn_coord_symmetry_loss_graph(target_masks, target_coords, target_class_id
         # mask = tf.cast(mask, dtype=tf.bool)
         # y_true_in_mask_stack = tf.boolean_mask(y_true_stack, mask)  ## shape: [num_pixels_in_mask, 6, 3]
         reshape_mask = tf.reshape(mask, (
-        tf.shape(mask)[0], tf.shape(mask)[1], tf.shape(mask)[2], 1, 1))  ## shape: [num_pixels_in_mask, height, width, 1, 1]
-        num_of_pixels = tf.reduce_sum(mask, axis=[1, 2]) + 0.00001  ## shape: [num_pos_rois]
+        tf.shape(input=mask)[0], tf.shape(input=mask)[1], tf.shape(input=mask)[2], 1, 1))  ## shape: [num_pixels_in_mask, height, width, 1, 1]
+        num_of_pixels = tf.reduce_sum(input_tensor=mask, axis=[1, 2]) + 0.00001  ## shape: [num_pos_rois]
 
         diff_in_mask = tf.multiply(diff, reshape_mask)  ## shape: [num_pos_rois, height, width, 6, 3]
-        sum_diff_in_mask = tf.reduce_sum(diff_in_mask, axis=[1, 2])  ## shape: [num_pos_rois, 6, 3]
-        total_sum_diff_in_mask = tf.reduce_sum(sum_diff_in_mask, axis=[-1])  ## shape: [num_pos_rois, 6]
+        sum_diff_in_mask = tf.reduce_sum(input_tensor=diff_in_mask, axis=[1, 2])  ## shape: [num_pos_rois, 6, 3]
+        total_sum_diff_in_mask = tf.reduce_sum(input_tensor=sum_diff_in_mask, axis=[-1])  ## shape: [num_pos_rois, 6]
 
-        arg_min_rotation = tf.argmin(total_sum_diff_in_mask, axis=-1)  ##shape: [num_pos_rois]
+        arg_min_rotation = tf.argmin(input=total_sum_diff_in_mask, axis=-1)  ##shape: [num_pos_rois]
         arg_min_rotation = tf.cast(arg_min_rotation, tf.int32)
 
-        min_indices = tf.stack([tf.range(tf.shape(arg_min_rotation)[0]), arg_min_rotation], axis=-1)
+        min_indices = tf.stack([tf.range(tf.shape(input=arg_min_rotation)[0]), arg_min_rotation], axis=-1)
         min_diff_in_mask = tf.gather_nd(sum_diff_in_mask, min_indices)  ## shape: [num_pos_rois, 3]
 
         mean_diff_in_mask = tf.divide(min_diff_in_mask, tf.expand_dims(num_of_pixels, axis=1))  ## shape: [num_pos_rois, 3]
 
-        loss = tf.reduce_mean(mean_diff_in_mask, axis=0)  ## shape:[3]
+        loss = tf.reduce_mean(input_tensor=mean_diff_in_mask, axis=0)  ## shape:[3]
 
         #loss = tf.Print(loss, [tf.shape(loss)], message='loss shape')
         return loss
@@ -1973,9 +1978,9 @@ def mrcnn_coord_symmetry_loss_graph(target_masks, target_coords, target_class_id
         return tf.constant([0.0, 0.0, 0.0])
 
 
-    loss = tf.cond(tf.size(positive_ix) > 0,
-                   lambda: nonzero_positive_loss(target_masks, target_coords, pred_coords, positive_ix),
-                   lambda: zero_positive_loss())
+    loss = tf.cond(pred=tf.size(input=positive_ix) > 0,
+                   true_fn=lambda: nonzero_positive_loss(target_masks, target_coords, pred_coords, positive_ix),
+                   false_fn=lambda: zero_positive_loss())
 
     return loss
 
@@ -1995,22 +2000,22 @@ def mrcnn_coord_symmetry_euclidean_distance_graph(target_masks, target_coords, t
 
 
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
-    coord_shape = tf.shape(target_coords)
-    pred_shape = tf.shape(pred_coords)
+    mask_shape = tf.shape(input=target_masks)
+    coord_shape = tf.shape(input=target_coords)
+    pred_shape = tf.shape(input=pred_coords)
 
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3], 1))
 
     target_coords = K.reshape(target_coords, (-1, coord_shape[2], coord_shape[3], 3))
-    target_coords = tf.image.resize_nearest_neighbor(target_coords, (pred_shape[2], pred_shape[3]))
+    target_coords = tf.image.resize(target_coords, (pred_shape[2], pred_shape[3]), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
-    target_masks = tf.image.resize_nearest_neighbor(target_masks, (pred_shape[2], pred_shape[3]))
+    target_masks = tf.image.resize(target_masks, (pred_shape[2], pred_shape[3]), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     target_masks = K.reshape(target_masks, (-1, pred_shape[2], pred_shape[3]))
 
 
     pred_coords = K.reshape(pred_coords, (-1, pred_shape[2], pred_shape[3], pred_shape[4], 3))
     # Permute predicted coords to [N, num_classes, height, width, 3]
-    pred_coords = tf.transpose(pred_coords, [0, 3, 1, 2, 4])
+    pred_coords = tf.transpose(a=pred_coords, perm=[0, 3, 1, 2, 4])
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
@@ -2019,7 +2024,7 @@ def mrcnn_coord_symmetry_euclidean_distance_graph(target_masks, target_coords, t
     domain_ix = tf.equal(target_domain_labels, False)
     target_class_ids = tf.multiply(target_class_ids, tf.cast(domain_ix, dtype=tf.float32))
 
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
 
     def nonzero_positive_loss(target_masks, target_coords, pred_coords, positive_ix):
         positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)  # [num_pos_rois]
@@ -2052,7 +2057,7 @@ def mrcnn_coord_symmetry_euclidean_distance_graph(target_masks, target_coords, t
         y_true_stack = tf.concat([y_true, rotated_y_true_1, rotated_y_true_2, rotated_y_true_3,
                                   rotated_y_true_4, rotated_y_true_5],
                                  axis=4)  ## shape: [num_pos_rois, height, width, 3, 6]
-        y_true_stack = tf.transpose(y_true_stack, (0, 1, 2, 4, 3))  ## shape: [num_pos_rois, height, width, 6, 3]
+        y_true_stack = tf.transpose(a=y_true_stack, perm=(0, 1, 2, 4, 3))  ## shape: [num_pos_rois, height, width, 6, 3]
         y_true_stack = y_true_stack + 0.5
 
         indices = tf.stack([positive_ix, positive_class_ids], axis=1)
@@ -2060,7 +2065,7 @@ def mrcnn_coord_symmetry_euclidean_distance_graph(target_masks, target_coords, t
         y_pred = tf.gather_nd(pred_coords, indices)  ## shape: [num_pos_roi, height, width, 3]
         y_pred = tf.expand_dims(y_pred, axis=3)  ## shape: [num_pos_roi, height, width, 1, 3]
         y_pred_stack = tf.tile(y_pred,
-                               [1, 1, 1, tf.shape(y_true_stack)[3], 1])  ## shape: [num_pos_rois, height, width, 6, 3]
+                               [1, 1, 1, tf.shape(input=y_true_stack)[3], 1])  ## shape: [num_pos_rois, height, width, 6, 3]
 
         diff = K.abs(y_true_stack - y_pred_stack)  ## shape: [num_pos_rois, height, width, 6, 3]
         diff = tf.square(diff)  ## shape: [num_pos_rois, height, width, 6, 3]
@@ -2069,13 +2074,13 @@ def mrcnn_coord_symmetry_euclidean_distance_graph(target_masks, target_coords, t
         # mask = tf.cast(mask, dtype=tf.bool)
         # y_true_in_mask_stack = tf.boolean_mask(y_true_stack, mask)  ## shape: [num_pixels_in_mask, 6, 3]
         reshape_mask = tf.reshape(mask, (
-            tf.shape(mask)[0], tf.shape(mask)[1], tf.shape(mask)[2], 1,
+            tf.shape(input=mask)[0], tf.shape(input=mask)[1], tf.shape(input=mask)[2], 1,
             1))  ## shape: [num_pixels_in_mask, height, width, 1, 1]
-        num_of_pixels = tf.reduce_sum(mask, axis=[1, 2]) + 0.00001  ## shape: [num_pos_rois]
+        num_of_pixels = tf.reduce_sum(input_tensor=mask, axis=[1, 2]) + 0.00001  ## shape: [num_pos_rois]
 
         diff_in_mask = tf.multiply(diff, reshape_mask)  ## shape: [num_pos_rois, height, width, 6, 3]
-        sum_diff_in_mask = tf.reduce_sum(diff_in_mask, axis=[1, 2])  ## shape: [num_pos_rois, 6, 3]
-        total_sum_diff_in_mask = tf.reduce_sum(sum_diff_in_mask, axis=[-1])  ## shape: [num_pos_rois, 6]
+        sum_diff_in_mask = tf.reduce_sum(input_tensor=diff_in_mask, axis=[1, 2])  ## shape: [num_pos_rois, 6, 3]
+        total_sum_diff_in_mask = tf.reduce_sum(input_tensor=sum_diff_in_mask, axis=[-1])  ## shape: [num_pos_rois, 6]
 
         #arg_min_rotation = tf.argmin(total_sum_diff_in_mask, axis=-1)  ##shape: [num_pos_rois]
         #arg_min_rotation = tf.cast(arg_min_rotation, tf.int32)
@@ -2083,12 +2088,12 @@ def mrcnn_coord_symmetry_euclidean_distance_graph(target_masks, target_coords, t
         #min_indices = tf.stack([tf.range(tf.shape(arg_min_rotation)[0]), arg_min_rotation], axis=-1)
         #min_diff_in_mask = tf.gather_nd(sum_diff_in_mask, min_indices)  ## shape: [num_pos_rois, 3]
 
-        min_squared_diff_sum_in_mask = tf.reduce_min(total_sum_diff_in_mask, axis=-1)  ## shape: [num_pos_rois]
+        min_squared_diff_sum_in_mask = tf.reduce_min(input_tensor=total_sum_diff_in_mask, axis=-1)  ## shape: [num_pos_rois]
         mean_squared_diff_sum_in_mask = tf.divide(min_squared_diff_sum_in_mask, num_of_pixels)  ## shape: [num_pos_rois]
         euclidean_dist_in_mask = tf.sqrt(mean_squared_diff_sum_in_mask)
 
 
-        dist = tf.reduce_mean(euclidean_dist_in_mask, axis=0)  ## shape:[1]
+        dist = tf.reduce_mean(input_tensor=euclidean_dist_in_mask, axis=0)  ## shape:[1]
 
         # loss = tf.Print(loss, [tf.shape(loss)], message='loss shape')
         return dist
@@ -2096,9 +2101,9 @@ def mrcnn_coord_symmetry_euclidean_distance_graph(target_masks, target_coords, t
     def zero_positive_loss():
         return tf.constant([0.0])
 
-    dist = tf.cond(tf.size(positive_ix) > 0,
-                   lambda: nonzero_positive_loss(target_masks, target_coords, pred_coords, positive_ix),
-                   lambda: zero_positive_loss())
+    dist = tf.cond(pred=tf.size(input=positive_ix) > 0,
+                   true_fn=lambda: nonzero_positive_loss(target_masks, target_coords, pred_coords, positive_ix),
+                   false_fn=lambda: zero_positive_loss())
 
     dist = K.reshape(dist, [1, 1])
 
@@ -2119,17 +2124,17 @@ def mrcnn_coord_bins_symmetry_loss_graph(target_masks, target_coords, target_cla
     # Reshape for simplicity. Merge first two dimensions into one.
 
     # num_bins = 32
-    num_bins = tf.shape(pred_coords)[-2]
+    num_bins = tf.shape(input=pred_coords)[-2]
 
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
+    mask_shape = tf.shape(input=target_masks)
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3]))
     target_coords = K.reshape(target_coords, (-1, mask_shape[2], mask_shape[3], 3))
 
-    pred_shape = tf.shape(pred_coords)
+    pred_shape = tf.shape(input=pred_coords)
     pred_coords_reshape = K.reshape(pred_coords, (-1, pred_shape[2], pred_shape[3], pred_shape[4], num_bins, 3))
     # Permute predicted coords to [N, num_classes, height, width, 3, num_bins]
-    pred_coords_trans = tf.transpose(pred_coords_reshape, [0, 3, 1, 2, 5, 4])
+    pred_coords_trans = tf.transpose(a=pred_coords_reshape, perm=[0, 3, 1, 2, 5, 4])
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
@@ -2138,7 +2143,7 @@ def mrcnn_coord_bins_symmetry_loss_graph(target_masks, target_coords, target_cla
     domain_ix = tf.equal(target_domain_labels, False)
     target_class_ids = tf.multiply(target_class_ids, tf.cast(domain_ix, dtype=tf.float32))
 
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
 
     def nonzero_positive_loss(target_masks, target_coords, pred_coords_trans, positive_ix):
         positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)  # [num_pos_rois]
@@ -2177,7 +2182,7 @@ def mrcnn_coord_bins_symmetry_loss_graph(target_masks, target_coords, target_cla
         y_true_stack = tf.concat([y_true, rotated_y_true_1, rotated_y_true_2, rotated_y_true_3,
                                   rotated_y_true_4, rotated_y_true_5],
                                  axis=4)  ## shape: [num_pos_rois, height, width, 3, 6]
-        y_true_stack = tf.transpose(y_true_stack, (0, 1, 2, 4, 3))  ## shape: [num_pos_rois, height, width, 6, 3]
+        y_true_stack = tf.transpose(a=y_true_stack, perm=(0, 1, 2, 4, 3))  ## shape: [num_pos_rois, height, width, 6, 3]
         y_true_stack = y_true_stack + 0.5
 
         y_true_bins_stack = y_true_stack * tf.cast(num_bins, tf.float32) - 0.000001
@@ -2188,7 +2193,7 @@ def mrcnn_coord_bins_symmetry_loss_graph(target_masks, target_coords, target_cla
 
         y_pred = tf.gather_nd(pred_coords_trans, indices)  ##shape: [num_pos_rois, height, width, 3, num_bins]
         y_pred = tf.expand_dims(y_pred, axis=3)  ## shape: [num_pos_roi, height, width, 1, 3, num_bins]
-        y_pred_stack = tf.tile(y_pred, [1, 1, 1, tf.shape(y_true_stack)[3], 1, 1])
+        y_pred_stack = tf.tile(y_pred, [1, 1, 1, tf.shape(input=y_true_stack)[3], 1, 1])
         ## shape: [num_pos_rois, height, width, 6, 3, num_bins]
 
 
@@ -2198,32 +2203,32 @@ def mrcnn_coord_bins_symmetry_loss_graph(target_masks, target_coords, target_cla
         mask = tf.gather(target_masks, positive_ix)  ## shape: [num_pos_rois, height, width]
         # mask = tf.cast(mask, dtype=tf.bool)
         # y_true_in_mask_stack = tf.boolean_mask(y_true_stack, mask)  ## shape: [num_pixels_in_mask, 6, 3]
-        reshape_mask = tf.reshape(mask, (tf.shape(mask)[0], tf.shape(mask)[1], tf.shape(mask)[2], 1, 1))
+        reshape_mask = tf.reshape(mask, (tf.shape(input=mask)[0], tf.shape(input=mask)[1], tf.shape(input=mask)[2], 1, 1))
         ## shape: [num_pos_rois, height, width, 1, 1]
 
-        num_of_pixels = tf.reduce_sum(mask, axis=[1, 2]) + 0.00001  ## shape: [num_pos_rois]
+        num_of_pixels = tf.reduce_sum(input_tensor=mask, axis=[1, 2]) + 0.00001  ## shape: [num_pos_rois]
 
         cross_loss_in_mask = tf.multiply(cross_loss, reshape_mask)  ## shape: [num_pos_rois, height, width, 6, 3]
-        sum_loss_in_mask = tf.reduce_sum(cross_loss_in_mask, axis=[1, 2])  ## shape: [num_pos_rois, 6, 3]
-        total_sum_loss_in_mask = tf.reduce_sum(sum_loss_in_mask, axis=-1)  ## shape: [num_pos_rois, 6]
+        sum_loss_in_mask = tf.reduce_sum(input_tensor=cross_loss_in_mask, axis=[1, 2])  ## shape: [num_pos_rois, 6, 3]
+        total_sum_loss_in_mask = tf.reduce_sum(input_tensor=sum_loss_in_mask, axis=-1)  ## shape: [num_pos_rois, 6]
 
-        arg_min_rotation = tf.argmin(total_sum_loss_in_mask, axis=-1)  ##shape: [num_pos_rois]
+        arg_min_rotation = tf.argmin(input=total_sum_loss_in_mask, axis=-1)  ##shape: [num_pos_rois]
         arg_min_rotation = tf.cast(arg_min_rotation, tf.int32)
 
-        min_indices = tf.stack([tf.range(tf.shape(arg_min_rotation)[0]), arg_min_rotation], axis=-1)
+        min_indices = tf.stack([tf.range(tf.shape(input=arg_min_rotation)[0]), arg_min_rotation], axis=-1)
         min_loss_in_mask = tf.gather_nd(sum_loss_in_mask, min_indices)  ## shape: [num_pos_rois, 3]
 
         mean_loss_in_mask = tf.divide(min_loss_in_mask, tf.expand_dims(num_of_pixels, axis=1))  ## shape: [num_pos_rois, 3]
-        sym_loss = tf.reduce_mean(mean_loss_in_mask, axis=0)  ## shape:[3]
+        sym_loss = tf.reduce_mean(input_tensor=mean_loss_in_mask, axis=0)  ## shape:[3]
         return sym_loss
 
     def zero_positive_loss(target_masks, target_coords, pred_coords_trans, positive_ix):
         return tf.constant([0.0, 0.0, 0.0])
 
 
-    loss = tf.cond(tf.size(positive_ix) > 0,
-                   lambda:nonzero_positive_loss(target_masks, target_coords, pred_coords_trans, positive_ix),
-                   lambda: zero_positive_loss(target_masks, target_coords, pred_coords_trans, positive_ix))
+    loss = tf.cond(pred=tf.size(input=positive_ix) > 0,
+                   true_fn=lambda:nonzero_positive_loss(target_masks, target_coords, pred_coords_trans, positive_ix),
+                   false_fn=lambda: zero_positive_loss(target_masks, target_coords, pred_coords_trans, positive_ix))
 
     return loss
 
@@ -2243,18 +2248,18 @@ def mrcnn_coord_reg_loss_graph(target_masks, target_coord, target_class_ids, pre
 
 
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
+    mask_shape = tf.shape(input=target_masks)
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3]))
     target_coord = K.reshape(target_coord, (-1, mask_shape[2], mask_shape[3]))
 
-    pred_shape = tf.shape(pred_coord)
+    pred_shape = tf.shape(input=pred_coord)
     pred_coord = K.reshape(pred_coord, (-1, pred_shape[2], pred_shape[3], pred_shape[4]))
     # Permute predicted masks to [N, num_classes, height, width]
-    pred_coord = tf.transpose(pred_coord, [0, 3, 1, 2])
+    pred_coord = tf.transpose(a=pred_coord, perm=[0, 3, 1, 2])
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
 
 
     positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)
@@ -2271,7 +2276,7 @@ def mrcnn_coord_reg_loss_graph(target_masks, target_coord, target_class_ids, pre
 
     #with tf.control_dependencies([assert_op]):
 
-    y_true_in_mask = tf.boolean_mask(y_true, mask)  ## shape: [num_pixels_in_masks_for_all_pos_rois]
+    y_true_in_mask = tf.boolean_mask(tensor=y_true, mask=mask)  ## shape: [num_pixels_in_masks_for_all_pos_rois]
 
     # y_mask = tf.gather(target_masks, positive_ix)
     # num_of_pixels = tf.reduce_sum(y_mask, axis=[1, 2]) + 0.00001
@@ -2279,14 +2284,14 @@ def mrcnn_coord_reg_loss_graph(target_masks, target_coord, target_class_ids, pre
     # y_pred_in_mask = tf.multiply(y_mask, y_pred)
 
     y_pred = tf.gather_nd(pred_coord, indices)
-    y_pred_in_mask = tf.boolean_mask(y_pred, mask)
+    y_pred_in_mask = tf.boolean_mask(tensor=y_pred, mask=mask)
 
     # coord_loss = K.sum(K.abs(y_true_in_mask - y_pred_in_mask), axis=[1, 2])
 
     diff = K.abs(y_true_in_mask - y_pred_in_mask)
     loss = loss_fn(diff)
 
-    loss = K.switch(tf.size(loss) > 0, K.mean(loss), tf.constant(0.0))
+    loss = K.switch(tf.size(input=loss) > 0, K.mean(loss), tf.constant(0.0))
 
     return loss
 
@@ -2306,18 +2311,18 @@ def mrcnn_coord_smooth_l1_loss_graph(target_masks, target_coord, target_class_id
 
 
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
+    mask_shape = tf.shape(input=target_masks)
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3]))
     target_coord = K.reshape(target_coord, (-1, mask_shape[2], mask_shape[3]))
 
-    pred_shape = tf.shape(pred_coord)
+    pred_shape = tf.shape(input=pred_coord)
     pred_coord = K.reshape(pred_coord, (-1, pred_shape[2], pred_shape[3], pred_shape[4]))
     # Permute predicted masks to [N, num_classes, height, width]
-    pred_coord = tf.transpose(pred_coord, [0, 3, 1, 2])
+    pred_coord = tf.transpose(a=pred_coord, perm=[0, 3, 1, 2])
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
     positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)
     indices = tf.stack([positive_ix, positive_class_ids], axis=1)
 
@@ -2326,7 +2331,7 @@ def mrcnn_coord_smooth_l1_loss_graph(target_masks, target_coord, target_class_id
     y_true = tf.gather(target_coord, positive_ix)  ## shape: [num_pos_rois, height, width]
     mask = tf.gather(target_masks, positive_ix)  ## shape: [num_pos_rois, height, width]
     mask = tf.cast(mask, dtype=tf.bool)
-    y_true_in_mask = tf.boolean_mask(y_true, mask)  ## shape: [num_pos_rois, height, width]
+    y_true_in_mask = tf.boolean_mask(tensor=y_true, mask=mask)  ## shape: [num_pos_rois, height, width]
 
     # y_mask = tf.gather(target_masks, positive_ix)
     # num_of_pixels = tf.reduce_sum(y_mask, axis=[1, 2]) + 0.00001
@@ -2334,7 +2339,7 @@ def mrcnn_coord_smooth_l1_loss_graph(target_masks, target_coord, target_class_id
     # y_pred_in_mask = tf.multiply(y_mask, y_pred)
 
     y_pred = tf.gather_nd(pred_coord, indices)
-    y_pred_in_mask = tf.boolean_mask(y_pred, mask)
+    y_pred_in_mask = tf.boolean_mask(tensor=y_pred, mask=mask)
 
     # coord_loss = K.sum(K.abs(y_true_in_mask - y_pred_in_mask), axis=[1, 2])
 
@@ -2361,20 +2366,20 @@ def mrcnn_coord_l2_loss_graph(target_masks, target_coord, target_class_ids, pred
 
 
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
+    mask_shape = tf.shape(input=target_masks)
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3]))
     target_coord = K.reshape(target_coord, (-1, mask_shape[2], mask_shape[3]))
-    coord_shape = tf.shape(target_coord)
+    coord_shape = tf.shape(input=target_coord)
 
 
-    pred_shape = tf.shape(pred_coord)
+    pred_shape = tf.shape(input=pred_coord)
     pred_coord = K.reshape(pred_coord, (-1, pred_shape[2], pred_shape[3], pred_shape[4]))
     # Permute predicted masks to [N, num_classes, height, width]
-    pred_coord = tf.transpose(pred_coord, [0, 3, 1, 2])
+    pred_coord = tf.transpose(a=pred_coord, perm=[0, 3, 1, 2])
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
     positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)
     indices = tf.stack([positive_ix, positive_class_ids], axis=1)
 
@@ -2382,7 +2387,7 @@ def mrcnn_coord_l2_loss_graph(target_masks, target_coord, target_class_ids, pred
     # true coord map:[N', height, width]
     y_true = tf.gather(target_coord, positive_ix)
     y_mask = tf.gather(target_masks, positive_ix)
-    num_of_pixels = tf.reduce_sum(y_mask, axis=[1, 2]) + 0.00001
+    num_of_pixels = tf.reduce_sum(input_tensor=y_mask, axis=[1, 2]) + 0.00001
     #num_of_pixels = tf.Print(num_of_pixels, [num_of_pixels, tf.shape(num_of_pixels)], message='number_of_pixels_for_each_roi')
 
 
@@ -2392,7 +2397,7 @@ def mrcnn_coord_l2_loss_graph(target_masks, target_coord, target_class_ids, pred
     coord_loss = K.sum(K.square(y_pred_in_mask - y_true), axis=[1,2])
     mean_loss =  coord_loss/num_of_pixels
 
-    loss = K.switch(tf.size(y_true) > 0, mean_loss, tf.constant(0.0))
+    loss = K.switch(tf.size(input=y_true) > 0, mean_loss, tf.constant(0.0))
     loss = K.mean(loss)
     loss = K.reshape(loss, [1, 1])
     return loss
@@ -2413,19 +2418,19 @@ def mrcnn_coords_l2_loss_graph(target_masks, target_coords, target_class_ids, pr
 
 
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
+    mask_shape = tf.shape(input=target_masks)
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3]))
     target_coords = K.reshape(target_coords, (-1, mask_shape[2], mask_shape[3], 3))
 
 
-    pred_shape = tf.shape(pred_coords)
+    pred_shape = tf.shape(input=pred_coords)
     pred_coords = K.reshape(pred_coords, (-1, pred_shape[2], pred_shape[3], pred_shape[4], 3))
     # Permute predicted masks to [N, num_classes, height, width, 3]
-    pred_coords = tf.transpose(pred_coords, [0, 3, 1, 2, 4])
+    pred_coords = tf.transpose(a=pred_coords, perm=[0, 3, 1, 2, 4])
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
     positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)
     indices = tf.stack([positive_ix, positive_class_ids], axis=1)
 
@@ -2434,7 +2439,7 @@ def mrcnn_coords_l2_loss_graph(target_masks, target_coords, target_class_ids, pr
     y_true = tf.gather(target_coords, positive_ix)  ## shape: [num_pos_rois, height, width, 3]
     mask = tf.gather(target_masks, positive_ix)     ## shape: [num_pos_rois, height, width]
     mask = tf.cast(mask, dtype=tf.bool)
-    y_true_in_mask = tf.boolean_mask(y_true, mask)  ## shape: [num_pos_pixels, 3]
+    y_true_in_mask = tf.boolean_mask(tensor=y_true, mask=mask)  ## shape: [num_pos_pixels, 3]
 
     # y_mask = tf.gather(target_masks, positive_ix)
     # num_of_pixels = tf.reduce_sum(y_mask, axis=[1, 2]) + 0.00001
@@ -2442,12 +2447,12 @@ def mrcnn_coords_l2_loss_graph(target_masks, target_coords, target_class_ids, pr
     # y_pred_in_mask = tf.multiply(y_mask, y_pred)
 
     y_pred = tf.gather_nd(pred_coords, indices)
-    y_pred_in_mask = tf.boolean_mask(y_pred, mask) ## shape: [num_pos_pixels, 3]
+    y_pred_in_mask = tf.boolean_mask(tensor=y_pred, mask=mask) ## shape: [num_pos_pixels, 3]
 
-    coord_loss = tf.sqrt(tf.reduce_sum(tf.square(y_pred_in_mask - y_true_in_mask), axis=[1]))
+    coord_loss = tf.sqrt(tf.reduce_sum(input_tensor=tf.square(y_pred_in_mask - y_true_in_mask), axis=[1]))
 
     loss = K.mean(coord_loss)
-    loss = K.switch(tf.size(y_true_in_mask) > 0, loss, tf.constant(0.0))
+    loss = K.switch(tf.size(input=y_true_in_mask) > 0, loss, tf.constant(0.0))
 
     loss = K.reshape(loss, [1, 1])
     return loss
@@ -2466,15 +2471,15 @@ def mrcnn_coord_bins_loss_graph(target_masks, target_coord, target_class_ids, pr
     # Reshape for simplicity. Merge first two dimensions into one.
 
     #num_bins = 32
-    num_bins = tf.shape(pred_coord)[-1]
+    num_bins = tf.shape(input=pred_coord)[-1]
 
 
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    mask_shape = tf.shape(target_masks)
+    mask_shape = tf.shape(input=target_masks)
     target_masks = K.reshape(target_masks, (-1, mask_shape[2], mask_shape[3]))
 
     target_coord = K.reshape(target_coord, (-1, mask_shape[2], mask_shape[3]))
-    coord_shape = tf.shape(target_coord)
+    coord_shape = tf.shape(input=target_coord)
 
 
     #target_coord_bins = target_coord*(num_bins-1)
@@ -2488,16 +2493,16 @@ def mrcnn_coord_bins_loss_graph(target_masks, target_coord, target_class_ids, pr
     target_coord_one_hot = tf.one_hot(target_coord_bins_flatten, num_bins)
     target_coord_one_hot = K.reshape(target_coord_one_hot, (coord_shape[0], coord_shape[1], coord_shape[2], num_bins))
 
-    pred_shape = tf.shape(pred_coord)
+    pred_shape = tf.shape(input=pred_coord)
     pred_coord = K.reshape(pred_coord, (-1, pred_shape[2], pred_shape[3], pred_shape[4], pred_shape[5]))
     # Permute predicted masks to [N, num_classes, height, width, bins]
-    pred_coord = tf.transpose(pred_coord, [0, 3, 1, 2, 4])
+    pred_coord = tf.transpose(a=pred_coord, perm=[0, 3, 1, 2, 4])
     #pred_coord = tf.Print(pred_coord, [tf.shape(pred_coord)[-1]], message='pred_coord')
 
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+    positive_ix = tf.compat.v1.where(target_class_ids > 0)[:, 0]
     positive_class_ids = tf.cast(tf.gather(target_class_ids, positive_ix), tf.int64)
     indices = tf.stack([positive_ix, positive_class_ids], axis=1)
 
@@ -2507,7 +2512,7 @@ def mrcnn_coord_bins_loss_graph(target_masks, target_coord, target_class_ids, pr
     # masks: [N', height, width]
     mask = tf.gather(target_masks, positive_ix)
     mask = tf.cast(mask, dtype=tf.bool)
-    y_true_in_mask = tf.boolean_mask(y_true, mask)
+    y_true_in_mask = tf.boolean_mask(tensor=y_true, mask=mask)
 
     #y_true_in_mask = tf.Print(y_true_in_mask, [tf.shape(y_true_in_mask)], message='y_true_in_mask')
 
@@ -2516,14 +2521,14 @@ def mrcnn_coord_bins_loss_graph(target_masks, target_coord, target_class_ids, pr
 
     # predicted coord map:[N', height, width, bins]
     y_pred = tf.gather_nd(pred_coord, indices)
-    y_pred_in_mask = tf.boolean_mask(y_pred, mask)
+    y_pred_in_mask = tf.boolean_mask(tensor=y_pred, mask=mask)
 
     #y_pred_in_mask = tf.Print(y_pred_in_mask, [tf.shape(y_pred_in_mask)], message='y_pred_in_mask')
 
     coord_loss_in_mask = K.categorical_crossentropy(y_true_in_mask, y_pred_in_mask)
     mean_loss =  K.mean(coord_loss_in_mask)
 
-    loss = K.switch(tf.size(y_true) > 0, mean_loss, tf.constant(0.0))
+    loss = K.switch(tf.size(input=y_true) > 0, mean_loss, tf.constant(0.0))
     # loss = K.mean(loss)
     loss = K.reshape(loss, [1, 1])
     return loss
@@ -2536,12 +2541,12 @@ def mrcnn_coord_delta_index(mrcnn_coord_delta, mrcnn_coord_bin):
         mrcnn_coord_bin: [batch, proposals, height, width, num_classes, 1].
     """
 
-    shape = tf.shape(mrcnn_coord_delta)
-    reshape_params = tf.reshape(mrcnn_coord_delta, [-1, tf.shape(mrcnn_coord_delta)[-1]])
+    shape = tf.shape(input=mrcnn_coord_delta)
+    reshape_params = tf.reshape(mrcnn_coord_delta, [-1, tf.shape(input=mrcnn_coord_delta)[-1]])
 
     reshape_indices = tf.cast(tf.reshape(mrcnn_coord_bin, [-1]), tf.int64)
 
-    nums = tf.cast(tf.range(tf.shape(reshape_params)[0]), tf.int64)
+    nums = tf.cast(tf.range(tf.shape(input=reshape_params)[0]), tf.int64)
     new_indice = tf.stack([nums, reshape_indices], axis=1)
 
     # X, Y = tf.meshgrid(num_0, num_1)
@@ -3334,7 +3339,7 @@ class MaskRCNN():
                     target_rois, gt_boxes, input_gt_masks, input_gt_coords])
 
 
-            target_domain_labels = KL.Lambda(lambda x: tf.tile(x[0], [1, tf.shape(x[1])[1]]),
+            target_domain_labels = KL.Lambda(lambda x: tf.tile(x[0], [1, tf.shape(input=x[1])[1]]),
                                 name='target_domain_labels')([input_gt_domain_labels, target_class_ids])
 
             target_coords = KL.Lambda(lambda x: tf.stack(x, axis=4), name="target_coords")(
@@ -3481,7 +3486,7 @@ class MaskRCNN():
 
                 
                 ## convert bins to float values
-                mrcnn_coord_x_shape = tf.shape(mrcnn_coord_x_bin)
+                mrcnn_coord_x_shape = tf.shape(input=mrcnn_coord_x_bin)
                 mrcnn_coord_x_bin_reshape = KL.Lambda(lambda t: tf.reshape(t,
                                                                     [-1, mrcnn_coord_x_shape[-1]]))(
                     mrcnn_coord_x_bin)
@@ -3491,7 +3496,7 @@ class MaskRCNN():
                                                         / (config.COORD_NUM_BINS))(mrcnn_coord_x_bin_ind)
                 mrcnn_coord_x_bin_value = KL.Lambda(lambda t: tf.reshape(t, mrcnn_coord_x_shape[:-1]))(mrcnn_coord_x_bin_value)
 
-                mrcnn_coord_y_shape = tf.shape(mrcnn_coord_y_bin)
+                mrcnn_coord_y_shape = tf.shape(input=mrcnn_coord_y_bin)
                 mrcnn_coord_y_bin_reshape = KL.Lambda(lambda t: tf.reshape(t,
                                                                             [-1, mrcnn_coord_y_shape[-1]]))(
                     mrcnn_coord_y_bin)
@@ -3502,7 +3507,7 @@ class MaskRCNN():
                 mrcnn_coord_y_bin_value = KL.Lambda(lambda t: tf.reshape(t, mrcnn_coord_y_shape[:-1]))(
                     mrcnn_coord_y_bin_value)
 
-                mrcnn_coord_z_shape = tf.shape(mrcnn_coord_z_bin)
+                mrcnn_coord_z_shape = tf.shape(input=mrcnn_coord_z_bin)
                 mrcnn_coord_z_bin_reshape = KL.Lambda(lambda t: tf.reshape(t,
                                                                             [-1, mrcnn_coord_z_shape[-1]]))(
                     mrcnn_coord_z_bin)
@@ -3819,7 +3824,7 @@ class MaskRCNN():
             
                 # convert results from bin index to float value
                 # tf reshape can only handle 6 channels
-                mrcnn_coord_x_shape = tf.shape(mrcnn_coord_x_bin)
+                mrcnn_coord_x_shape = tf.shape(input=mrcnn_coord_x_bin)
                 mrcnn_coord_x_bin_reshape = KL.Lambda(lambda t: tf.reshape(t,
                                                                             [-1, mrcnn_coord_x_shape[-1]]))(
                     mrcnn_coord_x_bin)
@@ -3831,7 +3836,7 @@ class MaskRCNN():
                                                     name='mrcnn_coord_x_bin_value')(mrcnn_coord_x_bin_value)
 
 
-                mrcnn_coord_y_shape = tf.shape(mrcnn_coord_y_bin)
+                mrcnn_coord_y_shape = tf.shape(input=mrcnn_coord_y_bin)
                 mrcnn_coord_y_bin_reshape = KL.Lambda(lambda t: tf.reshape(t,
                                                                             [-1, mrcnn_coord_y_shape[-1]]))(
                     mrcnn_coord_y_bin)
@@ -3842,7 +3847,7 @@ class MaskRCNN():
                 mrcnn_coord_y_bin_value = KL.Lambda(lambda t: tf.reshape(t, mrcnn_coord_y_shape[:-1]),
                                                     name='mrcnn_coord_y_bin_value')(mrcnn_coord_y_bin_value)
 
-                mrcnn_coord_z_shape = tf.shape(mrcnn_coord_z_bin)
+                mrcnn_coord_z_shape = tf.shape(input=mrcnn_coord_z_bin)
                 mrcnn_coord_z_bin_reshape = KL.Lambda(lambda t: tf.reshape(t,
                                                                             [-1, mrcnn_coord_z_shape[-1]]))(
                     mrcnn_coord_z_bin)
@@ -3958,7 +3963,8 @@ class MaskRCNN():
         exlude: list of layer names to excluce
         """
         import h5py
-        from keras.engine import saving
+        # from keras.engine import saving
+        from tensorflow.python.keras.saving import hdf5_format
 
         if exclude:
             by_name = True
@@ -4006,9 +4012,11 @@ class MaskRCNN():
             layers = filter(lambda l: l.name not in exclude, layers)
 
         if by_name:
-            saving.load_weights_from_hdf5_group_by_name(f, layers)
+            # saving.load_weights_from_hdf5_group_by_name(f, layers)
+            hdf5_format.load_weights_from_hdf5_group_by_name(f, layers)
         else:
-            saving.load_weights_from_hdf5_group(f, layers)
+            # saving.load_weights_from_hdf5_group(f, layers)
+            hdf5_format.load_weights_from_hdf5_group(f, layers)
         if hasattr(f, 'close'):
             f.close()
 
@@ -4049,9 +4057,9 @@ class MaskRCNN():
             if layer.output in self.keras_model.losses:
                 continue
             if name in ["mrcnn_coord_x_loss", "mrcnn_coord_y_loss", "mrcnn_coord_z_loss"]:
-                self.keras_model.add_loss(self.config.COORD_LOSS_SCALE*tf.reduce_mean(layer.output))
+                self.keras_model.add_loss(self.config.COORD_LOSS_SCALE*tf.reduce_mean(input_tensor=layer.output))
             else:
-                self.keras_model.add_loss(tf.reduce_mean(layer.output))
+                self.keras_model.add_loss(tf.reduce_mean(input_tensor=layer.output))
 
         # Add L2 Regularization
         reg_losses = [keras.regularizers.l2(self.config.WEIGHT_DECAY)(w)
@@ -4074,10 +4082,10 @@ class MaskRCNN():
                 continue
             layer = self.keras_model.get_layer(name)
             self.keras_model.metrics_names.append(name)
-            self.keras_model.metrics_tensors.append(tf.reduce_mean(layer.output))
+            self.keras_model.metrics_tensors.append(tf.reduce_mean(input_tensor=layer.output))
 
         self.keras_model.metrics_names.append("weight_reg_loss")
-        self.keras_model.metrics_tensors.append(tf.reduce_mean(reg_loss))
+        self.keras_model.metrics_tensors.append(tf.reduce_mean(input_tensor=reg_loss))
 
 
     def set_trainable(self, layer_regex, keras_model=None, indent=0, verbose=1):
@@ -4376,14 +4384,33 @@ class MaskRCNN():
         rois, rpn_class, rpn_bbox = \
             self.keras_model.predict([molded_images, image_metas], verbose=0)
         # Process detections
+        # print(detections.shape)
+        # print(type(detections[0, 0, 0]))
+        # print(mrcnn_class.shape)
+        # print(type(mrcnn_class[0, 0, 0]))
+        # print(mrcnn_bbox.shape)
+        # print(type(mrcnn_bbox[0, 0, 0, 0]))
+        # print(mrcnn_mask.shape)
+        # print(type(mrcnn_mask[0, 0, 0, 0, 0]))
+        # print(mrcnn_coord_x.shape)
+        # print(type(mrcnn_coord_x[0, 0, 0, 0, 0]))
+        # print(mrcnn_coord_y.shape)
+        # print(type(mrcnn_coord_y[0, 0, 0, 0, 0]))
+        # print(mrcnn_coord_z.shape)
+        # print(type(mrcnn_coord_z[0, 0, 0, 0, 0]))
+        # print(rois.shape)
+        # print(type(rois[0, 0, 0]))
+        # print(rpn_class.shape)
+        # print(type(rpn_class[0, 0, 0]))
+        # print(rpn_bbox.shape)
+        # print(type(rpn_bbox[0, 0, 0]))
 
         max_coord_x = np.amax(mrcnn_coord_x)
         max_coord_y = np.amax(mrcnn_coord_y)
         max_coord_z = np.amax(mrcnn_coord_z)
 
-        print('predict result:')
-        print(max_coord_x, max_coord_y, max_coord_z)
-
+        # print('predict result:')
+        # print(max_coord_x, max_coord_y, max_coord_z)
 
 
         mrcnn_coord = np.stack([mrcnn_coord_x, mrcnn_coord_y, mrcnn_coord_z], axis = -1)
@@ -4575,7 +4602,7 @@ def trim_zeros_graph(boxes):
 
     TODO: use this function to reduce code duplication
     """
-    area = tf.boolean_mask(boxes, tf.cast(tf.reduce_sum(tf.abs(boxes), axis=1),
+    area = tf.boolean_mask(tensor=boxes, mask=tf.cast(tf.reduce_sum(input_tensor=tf.abs(boxes), axis=1),
                            tf.bool))
 
 

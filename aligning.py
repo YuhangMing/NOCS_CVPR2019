@@ -10,8 +10,18 @@ import cv2
 import itertools
 
 def estimateSimilarityTransform(source: np.array, target: np.array, verbose=False):
+    # Filter out outliers in the 3d points from depth map
+    # for i in range(target.shape[0]):
+    print(source.shape)
+    print(target.shape)    
+
     SourceHom = np.transpose(np.hstack([source, np.ones([source.shape[0], 1])]))
     TargetHom = np.transpose(np.hstack([target, np.ones([source.shape[0], 1])]))
+
+    # print("Source - coords; Target - 3d pts from depth map")
+    # print(SourceHom.shape)
+    # print(TargetHom.shape)
+    # # (4, # of pts), # of pts are the same for 2 matrices
 
     # Auto-parameter selection based on source-target heuristics
     TargetNorm = np.mean(np.linalg.norm(target, axis=1))
@@ -33,6 +43,7 @@ def estimateSimilarityTransform(source: np.array, target: np.array, verbose=Fals
         return None, None, None, None
 
     Scales, Rotation, Translation, OutTransform = estimateSimilarityUmeyama(SourceInliersHom, TargetInliersHom)
+    # Scales, Rotation, Translation, OutTransform = estimateSimilarityUmeyama(SourceHom, TargetHom)
 
     if verbose:
         print('BestInlierRatio:', BestInlierRatio)
@@ -107,11 +118,13 @@ def getRANSACInliers(SourceHom, TargetHom, MaxIterations=100, PassThreshold=200,
             BestInlierRatio = InlierRatio
             BestInlierIdx = InlierIdx
         if BestResidual < StopThreshold:
+            print("Meet stop threshold with {} - {}".format(BestResidual, StopThreshold))
             break
 
         # print('Iteration: ', i)
         # print('Residual: ', Residual)
         # print('Inlier ratio: ', InlierRatio)
+    print("{} - {}".format(BestResidual, StopThreshold))
 
     return SourceHom[:, BestInlierIdx], TargetHom[:, BestInlierIdx], BestInlierRatio
 

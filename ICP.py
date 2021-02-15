@@ -8,7 +8,8 @@ Written by Srinath Sridhar
 from open3d import *
 import numpy as np
 import copy
-from matplotlib.mlab import PCA
+# from matplotlib.mlab import PCA
+from sklearn.decomposition import PCA
 import random
 
 def draw_registration_result(source, target, transformation):
@@ -28,7 +29,9 @@ def doICP(model_pts_np, pred_pts_np, SigmaFactor=5, threshold=1000, isViz=False)
     pred_pts.points = Vector3dVector(pred_pts_np)
 
     # First use PCA to compute the dimensions of target
+    print(model_pts_np.shape())
     model_pca = PCA(model_pts_np)
+    print(pred_pts_np.shape())
     pred_pca = PCA(pred_pts_np)
     # print('Model mean:', model_pca.mu)
     # print('Model sigma:', model_pca.sigma)

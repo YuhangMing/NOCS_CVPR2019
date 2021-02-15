@@ -599,8 +599,8 @@ def box_refinement_graph(box, gt_box):
 
     dy = (gt_center_y - center_y) / height
     dx = (gt_center_x - center_x) / width
-    dh = tf.log(gt_height / height)
-    dw = tf.log(gt_width / width)
+    dh = tf.math.log(gt_height / height)
+    dw = tf.math.log(gt_width / width)
 
     result = tf.stack([dy, dx, dh, dw], axis=1)
     return result
@@ -1215,8 +1215,10 @@ def unmold_mask(mask, bbox, image_shape):
     """
     threshold = 0.5
     y1, x1, y2, x2 = bbox
-    mask = scipy.misc.imresize(
-        mask, (y2 - y1, x2 - x1), interp='bilinear').astype(np.float32) / 255.0
+    # mask = scipy.misc.imresize(
+    #     mask, (y2 - y1, x2 - x1), interp='bilinear').astype(np.float32) / 255.0
+    mask = cv2.resize(
+        mask, (x2 - x1, y2 - y1), interpolation=cv2.INTER_LINEAR)
     mask = np.where(mask >= threshold, 1, 0).astype(np.uint8)
 
     # Put the mask in the right location.
@@ -2297,16 +2299,16 @@ def compute_coords_aps(final_results, synset_names, iou_thresholds, coord_thresh
     
     mean_coord_dist_cls = {}
     
-#     pred_matches_all = {}
-#     pred_scores_all = {}
-#     gt_matches_all = {}
+    # pred_matches_all = {}
+    # pred_scores_all = {}
+    # gt_matches_all = {}
 
     
     for cls_id in range(1, num_classes):
         mean_coord_dist_cls[cls_id] = []
-#         pred_matches_all[cls_id] = [[[] for _ in range(num_shift_thres)] for _ in range(num_degree_thres)]
-#         gt_matches_all[cls_id] = [[[] for _ in range(num_shift_thres)] for _ in range(num_degree_thres)]
-#         pred_scores_all[cls_id] = [[[] for _ in range(num_shift_thres)] for _ in range(num_degree_thres)]
+        # pred_matches_all[cls_id] = [[[] for _ in range(num_shift_thres)] for _ in range(num_degree_thres)]
+        # gt_matches_all[cls_id] = [[[] for _ in range(num_shift_thres)] for _ in range(num_degree_thres)]
+        # pred_scores_all[cls_id] = [[[] for _ in range(num_shift_thres)] for _ in range(num_degree_thres)]
 
     progress = 0
     for progress, result in enumerate(final_results):
@@ -2846,7 +2848,7 @@ def draw_detections(image, save_dir, data_name, image_id, intrinsics, synset_nam
     if draw_pred:
         print('a'*50)
         # Vs, Fs = dataset.load_objs(image_id, is_normalized=True) ## scale is estimated in RT
-        output_path   = os.path.join(save_dir, '{}_{}_coord_pred.png'.format(data_name, image_id))
+        output_path   = os.path.join(save_dir, 'coord_pred_{}_{}.png'.format(data_name, image_id))
         output_path_r = os.path.join(save_dir, '{}_{}_coord_pred_r.png'.format(data_name, image_id))
         output_path_g = os.path.join(save_dir, '{}_{}_coord_pred_g.png'.format(data_name, image_id))
         output_path_b = os.path.join(save_dir, '{}_{}_coord_pred_b.png'.format(data_name, image_id))
@@ -2857,10 +2859,8 @@ def draw_detections(image, save_dir, data_name, image_id, intrinsics, synset_nam
             g_image = image.copy()
             b_image = image.copy()
 
-        
         num_pred_instances = len(pred_class_ids)    
-        for i in range(num_pred_instances):
-            
+        for i in range(num_pred_instances):            
             mask = pred_mask[:, :, i]
             #mask = mask[:, :, np.newaxis]
             #mask = np.repeat(mask, 3, axis=-1)
@@ -2888,14 +2888,11 @@ def draw_detections(image, save_dir, data_name, image_id, intrinsics, synset_nam
 
         cv2.imwrite(output_path, draw_image[:, :, ::-1])
 
-
-
         if draw_rgb_coord:
             cv2.imwrite(output_path_r, r_image[:, :, ::-1])
             cv2.imwrite(output_path_g, g_image[:, :, ::-1])
             cv2.imwrite(output_path_b, b_image[:, :, ::-1])
-                        
-        
+                           
         output_path = os.path.join(save_dir, '{}_{}_bbox_pred.png'.format(data_name, image_id))
         draw_image_bbox = image.copy()
 
@@ -2903,12 +2900,10 @@ def draw_detections(image, save_dir, data_name, image_id, intrinsics, synset_nam
             gt_match, pred_match, _, pred_indices = compute_matches(gt_bbox, gt_class_ids, gt_mask,
                                                                     pred_bbox, pred_class_ids, pred_scores, pred_mask,
                                                                     0.5)
-
             if len(pred_indices):
                 pred_class_ids = pred_class_ids[pred_indices]
                 pred_scores = pred_scores[pred_indices]        
                 pred_RTs = pred_RTs[pred_indices]
-
         
         for ind in range(num_pred_instances):
             RT = pred_RTs[ind]
@@ -2922,7 +2917,6 @@ def draw_detections(image, save_dir, data_name, image_id, intrinsics, synset_nam
             xyz_axis = 0.3*np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]).transpose()
             transformed_axes = transform_coordinates_3d(xyz_axis, RT)
             projected_axes = calculate_2d_projections(transformed_axes, intrinsics)
-
 
             bbox_3d = get_3d_bbox(pred_scales[ind, :], 0)
             transformed_bbox_3d = transform_coordinates_3d(bbox_3d, RT)
@@ -2946,10 +2940,7 @@ def draw_detections(image, save_dir, data_name, image_id, intrinsics, synset_nam
                     overlay = draw_text(overlay, pred_bbox[ind], text)
                     cv2.addWeighted(overlay, alpha, draw_image_bbox, 1 - alpha, 0, draw_image_bbox)
 
-
-
         cv2.imwrite(output_path, draw_image_bbox[:, :, ::-1])
-
 
 
 def draw_coco_detections(image, save_dir, data_name, image_id, synset_names, draw_rgb_coord,
@@ -3047,6 +3038,7 @@ def backproject(depth, intrinsics, instance_mask):
     pts[:, 0] = -pts[:, 0]
     pts[:, 1] = -pts[:, 1]
 
+    # pts are the 3d points, idx are the image coordinates of that 3d point in (row, col)
     return pts, idxs
 
 
@@ -3065,10 +3057,28 @@ def align(class_ids, masks, coords, depth, intrinsics, synset_names, image_path,
         class_id = class_ids[i]
         mask = masks[:, :, i]
         coord = coords[:, :, i, :]
+        # print(coord.shape)
         abs_coord_pts = np.abs(coord[mask==1] - 0.5)
+        # print(abs_coord_pts.shape)
         bbox_scales[i, :] = 2*np.amax(abs_coord_pts, axis=0)
+        # print(bbox_scales.shape)
 
         pts, idxs = backproject(depth, intrinsics, mask)
+        # idxs is a tuple of 2 arrays, standing for the idx of row and col respectively
+        # mask_width = max(idxs[1]) - min(idxs[1]) + 1
+        # keep_idx = []
+        # for m in range(pts.shape[0]):
+        #     count = 0
+        #     for n in range( max(0, m-mask_width*5), min(pts.shape[0], m+mask_width*5)):
+        #         if m==n:
+        #             continue
+        #         dist = np.linalg.norm(pts[m, :] - pts[n, :])
+        #         if dist <= 0.01:
+        #             count = count + 1
+        #     if count > 30:
+        #         keep_idx.append(n)
+        # print(len(keep_idx))
+
         coord_pts = coord[idxs[0], idxs[1], :] - 0.5
 
         if if_norm:
