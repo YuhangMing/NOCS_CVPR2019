@@ -1,5 +1,5 @@
 * Added "bridge.py" file to allow c++ program to call the network. ICP-based object pose estimation is also moved to c++ program;
-* Upgrade the original TF1 code to TF2 and tested out;
+* Follow the [instructions](https://www.tensorflow.org/guide/upgrade), upgraded the original TF1 code to TF2 and tested out;
 * Resumed the visualisation of detected objects in python scripts.
 
 ----
