@@ -42,26 +42,26 @@ if gpus:
   #   # Visible devices must be set before GPUs have been initialized
   #   print(e)
 
-  # Currently, memory growth needs to be the same across GPUs
-  try:
-    for gpu in gpus:
-      tf.config.experimental.set_memory_growth(gpu, True)
-    logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-  except RuntimeError as e:
-    # Memory growth must be set before GPUs have been initialized
-    print(e)
-
-  # # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+  # # Currently, memory growth needs to be the same across GPUs
   # try:
-  #   tf.config.experimental.set_virtual_device_configuration(
-  #       gpus[0],
-  #       [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)])
+  #   for gpu in gpus:
+  #     tf.config.experimental.set_memory_growth(gpu, True)
   #   logical_gpus = tf.config.experimental.list_logical_devices('GPU')
   #   print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
   # except RuntimeError as e:
-  #   # Virtual devices must be set before GPUs have been initialized
+  #   # Memory growth must be set before GPUs have been initialized
   #   print(e)
+
+  # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+  try:
+    tf.config.experimental.set_virtual_device_configuration(
+        gpus[0],
+        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
+    logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+  except RuntimeError as e:
+    # Virtual devices must be set before GPUs have been initialized
+    print(e)
 else:
   print("Looks like no GPU devices found.")
 
@@ -244,7 +244,8 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt_path', type=str, default='logs/nocs_rcnn_res50_bin32.h5')
     parser.add_argument('--data', type=str, help="vil_test", default='vil')
     parser.add_argument('--gpu',  default='0', type=str)
-    parser.add_argument('--draw', dest='draw', action='store_true', help="whether draw and save detection visualization")
+    parser.add_argument('--draw', dest='draw', action='store_true', \
+                            help="whether draw and save detection visualization")
     parser.add_argument('--num_eval', type=int, default=-1)
 
     parser.set_defaults(use_regression=False)
@@ -267,52 +268,70 @@ if __name__ == '__main__':
     # load the detector
     model = load_nocs_detector(ckpt_path, True)
 
-    # Test on a single image
-    print('*'*50)
-    image_start = time.time()
-    image_path = "0.png"
-    print(image_path)
-
+    # Test on some images
     import cv2
-    image= cv2.imread(image_path)[:, :, :3]
-    # cv2.imshow("image", image)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    img_h, img_w, img_d = image.shape
-    print(img_h, img_w, img_d)
-    print(type(image))
-    image = image[:, :, ::-1]
-    # If grayscale. Convert to RGB for consistency.
-    if image.ndim != 3:
-        image =  cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    # perform detection on a pair on images
-    labels, scores, masks, coords = detection_x1(model, image)
-    print(labels.shape)
-    print(scores.shape)
-    print(masks.shape)
-    print(coords.shape)
-    print("label - score")
-    for i in range(labels.shape[0]):
-        print(labels[i], "-", scores[i])
+    import random
+    palette = [(0, 0, 0), (255, 165, 0), (128, 128, 0), (128, 0, 128), \
+                (255, 255, 0), (0, 0, 255), (0, 255, 255)]
+    obj_label = ['BG', 'bottle', 'bowl', 'camera', 'can', 'laptop', 'mug']
+    start_idx = [2, 27, 80, 119, 184, 219, 276]
+    print('\n', '*'*50)
+    for idx in range(56):    
+        image_start = time.time()
+        
+        # read current image
+        image_path = os.path.join('..', 'data', 'bedroom', 'original', str(idx)+'.JPG')
+        print(image_path)
+        image= cv2.imread(image_path)
+        image = cv2.resize(image, (640, 480), interpolation = cv2.INTER_CUBIC)
+        img_h, img_w, img_d = image.shape
+        print(img_h, img_w, img_d)
+        # image = image[:, :, ::-1]    # RGB or BGR
+        # If grayscale. Convert to RGB for consistency.
+        if image.ndim != 3:
+            image =  cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        
+        # perform detection
+        labels, scores, masks, coords = detection_x1(model, image)
+        elapsed = time.time() - image_start
+        print('Detection takes {} to finish.'.format(elapsed))
 
-    elapsed = time.time() - image_start
-    print('Takes {} to finish this image.'.format(elapsed))
+        # visualise detection results
+        num_of_detect = labels.shape[0]
+        print(num_of_detect, " objects detected in current images.")
+        vi_masks = masks.reshape(num_of_detect, img_h, img_w)
+        vi_coords = coords.reshape(num_of_detect, 3, img_h, img_w)
+        for i in range(7):
+            image = cv2.putText(image, obj_label[i], (start_idx[i], 476), \
+                            cv2.FONT_HERSHEY_PLAIN, 1, palette[i], 1, cv2.LINE_AA) 
+        
+        fused_mask = np.zeros([img_h,img_w])
+        fused_coord = np.zeros([img_h, img_w, 3])
+        
+        print("label - score")
+        for i in range(num_of_detect):
+            print(obj_label[labels[i]], "-", scores[i])
+            if scores[i] < 0.5:
+                continue
 
-    # visualise detection results
-    num_of_detect = labels.shape[0]
-    vi_masks = masks.reshape(num_of_detect, img_h, img_w)
-    vi_coords = coords.reshape(num_of_detect, 3, img_h, img_w)
-    
-    fused_mask = np.zeros([img_h,img_w])
-    fused_coord = np.zeros([img_h, img_w, 3])
-    for i in range(num_of_detect):
-        tmp_mask = vi_masks[i, :, :].astype(np.uint8) * 255
-        fused_mask = fused_mask + tmp_mask
-        tmp_coord = vi_coords[i, :, :, :].transpose(1, 2, 0)
-        fused_coord = fused_coord + tmp_coord
+            tmp_mask = vi_masks[i, :, :].astype(np.uint8)
+            contours, hierarchy = cv2.findContours(tmp_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)  
+            cv2.drawContours(image, contours, 0, palette[labels[i]], 3) 
+            j = random.randint(0, contours[0].shape[0]-1)
 
-    cv2.imshow("img", image)
-    cv2.imshow("masks", fused_mask)
-    cv2.imshow("coords", fused_coord)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+            image = cv2.putText(image, '{:.4f}'.format(scores[i]), \
+                            (contours[0][j,0,0]-4, contours[0][j,0,1]-4), cv2.FONT_HERSHEY_PLAIN,\
+                            1, palette[labels[i]], 1, cv2.LINE_AA) 
+
+            fused_mask = fused_mask + tmp_mask * 255
+            tmp_coord = vi_coords[i, :, :, :].transpose(1, 2, 0)
+            fused_coord = fused_coord + tmp_coord
+
+        output_path = os.path.join('..', 'data', 'bedroom', 'label', str(idx)+'.png')
+        cv2.imwrite(output_path, image)
+
+        # cv2.imshow("img", image)
+        # # cv2.imshow("masks", fused_mask)
+        # # cv2.imshow("coords", fused_coord)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()

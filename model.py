@@ -15,6 +15,9 @@ import logging
 from collections import OrderedDict
 import numpy as np
 import scipy.misc
+import sys
+if not sys.argv:
+  sys.argv.append("(C++)")
 import tensorflow as tf
 tf.compat.v1.disable_eager_execution()
 import keras
